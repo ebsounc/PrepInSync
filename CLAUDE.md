@@ -1,6 +1,8 @@
 # Kitchen prep app — project rules
 
-Bilingual-first kitchen prep tool. Each user picks their language; the app translates prep lists and recipes between them (English ↔ Spanish in v1) so a chef and prep cook who don't share a language can work off the same list.
+Bilingual-first kitchen prep tool. Each user picks their language; the app translates prep lists and recipes between them (English ↔ Spanish in v1) so kitchen staff who don't share a language can work off the same list.
+
+Eight roles, two tiers. Management (`owner`, `general_manager`, `kitchen_manager`, `head_chef`, `sous_chef`) can create prep lists by default. Execution (`prep_chef`, `line_cook`, `expeditor`) cannot by default, but management can grant `can_create_lists` per individual. Language is independent of role — any user can pick English or Spanish.
 
 ## Required reading at session start
 Read these before working:

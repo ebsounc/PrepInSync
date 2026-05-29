@@ -17,6 +17,7 @@ import {
 export const restaurants = pgTable('restaurants', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
+  timezone: text('timezone').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
@@ -31,10 +32,15 @@ export const profiles = pgTable('profiles', {
   restaurantId: uuid('restaurant_id')
     .notNull()
     .references(() => restaurants.id),
-  role: text('role', { enum: ['chef', 'prep_cook'] }).notNull(),
+  firstName: text('first_name').notNull(),
+  lastName: text('last_name').notNull(),
+  phone: text('phone'),
+  role: text('role', { enum: ['owner', 'general_manager', 'kitchen_manager', 'head_chef', 'sous_chef', 'prep_chef', 'line_cook', 'expeditor'] }).notNull(),
+  canCreateLists: boolean('can_create_lists').notNull().default(false),
   preferredLanguage: text('preferred_language', { enum: ['en', 'es'] })
     .notNull()
     .default('en'),
+  isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
@@ -48,6 +54,9 @@ export const prepItems = pgTable('prep_items', {
     .notNull()
     .references(() => restaurants.id),
   name: text('name').notNull(),
+  imageUrl: text('image_url'),
+  parQuantity: numeric('par_quantity'),
+  parUnit: text('par_unit'),
   sourceLanguage: text('source_language', { enum: ['en', 'es'] })
     .notNull()
     .default('en'),
@@ -89,7 +98,7 @@ export const prepListEntries = pgTable('prep_list_entries', {
     .references(() => prepItems.id),
   quantity: numeric('quantity').notNull(),
   unit: text('unit').notNull(),
-  assignedTo: uuid('assigned_to').references(() => profiles.id),
+  isStarred: boolean('is_starred').notNull().default(false),
   notes: text('notes'),
   completed: boolean('completed').notNull().default(false),
   completedAt: timestamp('completed_at'),
@@ -110,10 +119,13 @@ export const recipes = pgTable('recipes', {
   restaurantId: uuid('restaurant_id')
     .notNull()
     .references(() => restaurants.id),
+  imageUrl: text('image_url'),
   ingredients: jsonb('ingredients').notNull().$type<
     { name: string; quantity: string; unit: string }[]
   >(),
-  instructions: text('instructions').notNull(),
+  instructions: jsonb('instructions').notNull().$type<
+    { text?: string; imageUrl?: string }[]
+  >(),
   sourceLanguage: text('source_language', { enum: ['en', 'es'] })
     .notNull()
     .default('en'),

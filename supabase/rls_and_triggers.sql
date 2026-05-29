@@ -18,6 +18,9 @@ ALTER TABLE profiles
 
 -- Trigger function: inserts a profiles row when a new auth.users row is created.
 -- Role and restaurant assignment happen during onboarding (after signup).
+-- Trigger function: inserts a profiles row when a new auth.users row is created.
+-- Reads first_name, last_name, and preferred_language from user metadata passed
+-- by the signup form. Restaurant and role are finalized during onboarding.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -25,14 +28,14 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- Restaurant and role are set during onboarding; use placeholders here.
-  -- The onboarding flow must update this row before the user can access the app.
-  INSERT INTO public.profiles (id, restaurant_id, role, preferred_language)
+  INSERT INTO public.profiles (id, restaurant_id, role, first_name, last_name, preferred_language)
   VALUES (
     new.id,
-    '00000000-0000-0000-0000-000000000000', -- placeholder; replaced during onboarding
-    'prep_cook',                             -- default; chef sets this during invite flow
-    'en'
+    '00000000-0000-0000-0000-000000000000',  -- placeholder; replaced during onboarding
+    'line_cook',                              -- default; updated during onboarding/invite
+    COALESCE(new.raw_user_meta_data->>'first_name', ''),
+    COALESCE(new.raw_user_meta_data->>'last_name', ''),
+    COALESCE(new.raw_user_meta_data->>'preferred_language', 'en')
   );
   RETURN new;
 END;

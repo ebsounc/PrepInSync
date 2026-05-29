@@ -24,9 +24,13 @@ Kitchen Spanish ≠ Google Translate Spanish. The core moat is a domain-specific
 
 Roles govern *permissions and workflow*, not language. Language is a separate per-user setting.
 
-**Chef / kitchen manager** — buyer AND a daily user. Inputs recipes and ingredients, builds prep lists, sets pars, assigns tasks, sees completion status. Authors content in their own preferred language (usually but not always English). We're serving both sides of one workflow, not selling to one person and serving another.
+Eight roles, two tiers:
 
-**Prep cook** — receives the shift/next-day prep checklist, reads everything in their preferred language, checks items off. May read English or Spanish depending on their setting.
+**Management tier** (`owner`, `general_manager`, `kitchen_manager`, `head_chef`, `sous_chef`) — can build prep lists by default. Can grant or revoke list-creation permission for individuals in the execution tier.
+
+**Execution tier** (`prep_chef`, `line_cook`, `expeditor`) — receive and work through prep lists by default. Can be granted list-creation permission individually by anyone in the management tier. Expeditor coordinates between kitchen and front-of-house and reads prep lists but doesn't create them.
+
+Permission model: `profiles.can_create_lists` boolean, defaulting to `true` for management roles and `false` for execution roles at insert time. Management tier can toggle it per person.
 
 The hard part isn't whether the chef finds it useful. It's adoption — see open questions.
 
@@ -44,22 +48,27 @@ The hard part isn't whether the chef finds it useful. It's adoption — see open
 **Auth & account setup**
 - Signup, login, password reset
 - One account = one restaurant location
-- Chef invites team members; manages roster
-- Two roles: chef/manager and prep cook, with different views
+- Management tier invites team members; manages roster
+- Eight roles across two tiers — management (owner, general_manager, kitchen_manager, head_chef, sous_chef) and execution (prep_chef, line_cook, expeditor)
+- `can_create_lists` permission flag: true by default for management, false for execution, toggleable per person by management
 
 **Prep workflow**
-- Item database (restaurant inputs their prep items)
-- Quantities and par levels
+- Item database (restaurant inputs their prep items, with optional par levels)
+- Quantities support decimals (e.g. 1.5 quarts) — stored as `numeric`
 - Units of measure handled correctly (lbs/kg, oz/g, quarts/liters, cases, each)
-- Chef builds the prep list — selects items, sets quantities, assigns to specific prep cooks
-- Prep cook sees their assigned list, taps items to mark complete
-- Real-time completion status visible to the chef
+- Management builds the prep list — selects items, sets quantities, optionally stars priority items (starred items float to top)
+- All staff see the full list; tap items to mark complete
+- Real-time completion status visible to management
+- Soft-delete for team members (`is_active` flag) — historical completion data is preserved
 
 **Recipes (optional per item)**
 - Items can have an attached recipe or not — supports both "experienced staff, no recipes needed" and "newer staff, recipes required" use cases
 - Manual recipe entry (typed)
 - Recipe paste-from-document (Word, Google Docs, etc.) — parsed via LLM into structured form
 - Photo recipe ingestion — snap a binder page, OCR + LLM structures it into ingredients + amounts + instructions, chef reviews and saves
+- Each recipe has an optional cover photo (shown above the recipe view)
+- Each prep item has an optional thumbnail image (shown in list views)
+- `instructions` is a JSONB array of steps: `{ text?: string, imageUrl?: string }[]`. A step can be text-only, image-only (e.g. a photo of a handwritten recipe), or both. Per-step images are already modeled; v2 can expose the UI for it.
 
 **Bilingual core**
 - Language is a **per-user preference**, not fixed by role. Each user (chef or prep cook) picks the language they read/write in.
@@ -81,6 +90,9 @@ The hard part isn't whether the chef finds it useful. It's adoption — see open
 
 ## v2 (after v1 is stable and we have real users)
 
+- Assigned-to per prep list entry (prep cook sees only their tasks)
+- Sort order for prep list entries (chef manually reorders the list)
+- Draft/scheduled publish for prep lists (build the list, release it at a set time)
 - Voice entry for recipes (chef talks, app structures it)
 - Recurring/template prep lists (Mon–Fri auto-populate)
 - Prep history & reports (how long things took, what got skipped, trends)
