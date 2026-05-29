@@ -1,5 +1,5 @@
 {
-  "id": "d46c7aba-f236-4bc5-b616-2d12626c3597",
+  "id": "e88a780b-d996-4c77-ab03-497d86c3ba8d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -101,6 +101,97 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.invites": {
+      "name": "invites",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "restaurant_id": {
+          "name": "restaurant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "can_create_lists": {
+          "name": "can_create_lists",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "invited_by": {
+          "name": "invited_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accepted_at": {
+          "name": "accepted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "invites_restaurant_id_restaurants_id_fk": {
+          "name": "invites_restaurant_id_restaurants_id_fk",
+          "tableFrom": "invites",
+          "tableTo": "restaurants",
+          "columnsFrom": [
+            "restaurant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "invites_invited_by_profiles_id_fk": {
+          "name": "invites_invited_by_profiles_id_fk",
+          "tableFrom": "invites",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "invited_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.prep_items": {
       "name": "prep_items",
       "schema": "",
@@ -123,6 +214,24 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "image_url": {
+          "name": "image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "par_quantity": {
+          "name": "par_quantity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "par_unit": {
+          "name": "par_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "source_language": {
           "name": "source_language",
@@ -222,11 +331,12 @@
           "primaryKey": false,
           "notNull": true
         },
-        "assigned_to": {
-          "name": "assigned_to",
-          "type": "uuid",
+        "is_starred": {
+          "name": "is_starred",
+          "type": "boolean",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": false
         },
         "notes": {
           "name": "notes",
@@ -282,19 +392,6 @@
           "tableTo": "prep_items",
           "columnsFrom": [
             "prep_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "prep_list_entries_assigned_to_profiles_id_fk": {
-          "name": "prep_list_entries_assigned_to_profiles_id_fk",
-          "tableFrom": "prep_list_entries",
-          "tableTo": "profiles",
-          "columnsFrom": [
-            "assigned_to"
           ],
           "columnsTo": [
             "id"
@@ -414,7 +511,25 @@
           "name": "restaurant_id",
           "type": "uuid",
           "primaryKey": false,
+          "notNull": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true
+        },
+        "last_name": {
+          "name": "last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "role": {
           "name": "role",
@@ -422,12 +537,26 @@
           "primaryKey": false,
           "notNull": true
         },
+        "can_create_lists": {
+          "name": "can_create_lists",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "preferred_language": {
           "name": "preferred_language",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'en'"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "created_at": {
           "name": "created_at",
@@ -482,6 +611,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "image_url": {
+          "name": "image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "ingredients": {
           "name": "ingredients",
           "type": "jsonb",
@@ -490,7 +625,7 @@
         },
         "instructions": {
           "name": "instructions",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },
@@ -583,6 +718,12 @@
         },
         "name": {
           "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timezone": {
+          "name": "timezone",
           "type": "text",
           "primaryKey": false,
           "notNull": true

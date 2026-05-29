@@ -29,9 +29,7 @@ export const restaurants = pgTable('restaurants', {
 // ---------------------------------------------------------------------------
 export const profiles = pgTable('profiles', {
   id: uuid('id').primaryKey(), // same value as auth.users.id
-  restaurantId: uuid('restaurant_id')
-    .notNull()
-    .references(() => restaurants.id),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id),
   firstName: text('first_name').notNull(),
   lastName: text('last_name').notNull(),
   phone: text('phone'),
@@ -41,6 +39,28 @@ export const profiles = pgTable('profiles', {
     .notNull()
     .default('en'),
   isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// ---------------------------------------------------------------------------
+// invites
+// Pending team invitations. Source of truth for an invited user's restaurant,
+// role, and list permission — these are read here on invite acceptance, NOT
+// from user_metadata (which the user can edit via supabase.auth.updateUser).
+// acceptedAt IS NULL means the invite is still pending.
+// ---------------------------------------------------------------------------
+export const invites = pgTable('invites', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: text('email').notNull(),
+  restaurantId: uuid('restaurant_id')
+    .notNull()
+    .references(() => restaurants.id),
+  role: text('role', { enum: ['owner', 'general_manager', 'kitchen_manager', 'head_chef', 'sous_chef', 'prep_chef', 'line_cook', 'expeditor'] }).notNull(),
+  canCreateLists: boolean('can_create_lists').notNull().default(false),
+  invitedBy: uuid('invited_by')
+    .notNull()
+    .references(() => profiles.id),
+  acceptedAt: timestamp('accepted_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 

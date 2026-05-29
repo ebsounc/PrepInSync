@@ -1,4 +1,10 @@
-// TODO: signup form — Phase 1 (auth)
+import AuthFormWrapper from '@/components/auth/auth-form-wrapper'
+import { SignupForm } from './_components/signup-form'
+
 export default function SignupPage() {
-  return <div>Sign Up</div>
+  return (
+    <AuthFormWrapper title="Create your account" description="Set up your restaurant on KitchenPrep">
+      <SignupForm />
+    </AuthFormWrapper>
+  )
 }

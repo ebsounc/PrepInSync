@@ -31,8 +31,8 @@ BEGIN
   INSERT INTO public.profiles (id, restaurant_id, role, first_name, last_name, preferred_language)
   VALUES (
     new.id,
-    '00000000-0000-0000-0000-000000000000',  -- placeholder; replaced during onboarding
-    'line_cook',                              -- default; updated during onboarding/invite
+    NULL,        -- no restaurant yet; set during onboarding
+    'line_cook', -- default role; updated during onboarding/invite
     COALESCE(new.raw_user_meta_data->>'first_name', ''),
     COALESCE(new.raw_user_meta_data->>'last_name', ''),
     COALESCE(new.raw_user_meta_data->>'preferred_language', 'en')
