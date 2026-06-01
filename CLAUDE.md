@@ -24,6 +24,7 @@ Read these before working:
 - Server actions for mutations. Server components by default; client components only when interactivity requires it.
 - Row-level security on EVERY table. No exceptions. One account = one restaurant; users only see their restaurant's data.
 - Each feature area is self-contained where possible.
+- Before changing the database, read `docs/database.md` — the DB map (Drizzle vs. raw-SQL split, migration workflow, RLS model per table).
 
 ## Translation rules
 - Language is a **per-user preference**, not tied to role. Each user picks the language they read/write in. Roles govern permissions/workflow, not language.
