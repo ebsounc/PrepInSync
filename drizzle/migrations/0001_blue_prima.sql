@@ -1,0 +1,8 @@
+ALTER TABLE "glossary_overrides" ADD CONSTRAINT "glossary_overrides_source_language_check" CHECK ("glossary_overrides"."source_language" in ('en', 'es'));--> statement-breakpoint
+ALTER TABLE "glossary_overrides" ADD CONSTRAINT "glossary_overrides_target_language_check" CHECK ("glossary_overrides"."target_language" in ('en', 'es'));--> statement-breakpoint
+ALTER TABLE "invites" ADD CONSTRAINT "invites_role_check" CHECK ("invites"."role" in ('owner', 'general_manager', 'kitchen_manager', 'head_chef', 'sous_chef', 'prep_chef', 'line_cook', 'expeditor'));--> statement-breakpoint
+ALTER TABLE "prep_items" ADD CONSTRAINT "prep_items_source_language_check" CHECK ("prep_items"."source_language" in ('en', 'es'));--> statement-breakpoint
+ALTER TABLE "profiles" ADD CONSTRAINT "profiles_role_check" CHECK ("profiles"."role" in ('owner', 'general_manager', 'kitchen_manager', 'head_chef', 'sous_chef', 'prep_chef', 'line_cook', 'expeditor'));--> statement-breakpoint
+ALTER TABLE "profiles" ADD CONSTRAINT "profiles_preferred_language_check" CHECK ("profiles"."preferred_language" in ('en', 'es'));--> statement-breakpoint
+ALTER TABLE "recipes" ADD CONSTRAINT "recipes_source_language_check" CHECK ("recipes"."source_language" in ('en', 'es'));--> statement-breakpoint
+ALTER TABLE "translations" ADD CONSTRAINT "translations_target_language_check" CHECK ("translations"."target_language" in ('en', 'es'));
