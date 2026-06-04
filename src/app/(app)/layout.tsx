@@ -2,8 +2,10 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
+import { isManagementRole } from '@/lib/auth/roles'
 import { logoutAction } from '@/app/(auth)/actions'
 import { Button } from '@/components/ui/button'
+import { BottomNav } from './_components/bottom-nav'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -26,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const displayName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : user.email
+  const onboarded = Boolean(profile?.restaurantId)
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -40,7 +43,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      {/* Pad the bottom so the fixed nav never covers content */}
+      <main className={onboarded ? 'flex-1 pb-20' : 'flex-1'}>{children}</main>
+      {onboarded && profile && <BottomNav showTeam={isManagementRole(profile.role)} />}
     </div>
   )
 }

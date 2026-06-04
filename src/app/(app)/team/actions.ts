@@ -1,9 +1,14 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getProfileByUserId } from '@/lib/db/queries/profiles'
+import {
+  getProfileByUserId,
+  setCanCreateLists,
+  setProfileActive,
+} from '@/lib/db/queries/profiles'
 import { createInvite, deleteInvite } from '@/lib/db/queries/invites'
 import { getOrigin } from '@/lib/get-origin'
 import {
@@ -88,4 +93,66 @@ export async function inviteTeamMemberAction(
   }
 
   return { success: true, invitedEmail: email }
+}
+
+// Resolves the caller as a management user and the target as a member of the same
+// restaurant. Shared guard for the per-person roster toggles below.
+async function requireManagerAndTarget(targetId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'You must be signed in.' as const }
+
+  const caller = await getProfileByUserId(user.id)
+  if (!caller || !caller.restaurantId || !caller.isActive || !isManagementRole(caller.role)) {
+    return { error: 'You do not have permission to manage the team.' as const }
+  }
+
+  const parsedId = z.string().uuid().safeParse(targetId)
+  if (!parsedId.success) return { error: 'Invalid team member.' as const }
+
+  const target = await getProfileByUserId(parsedId.data)
+  if (!target || target.restaurantId !== caller.restaurantId) {
+    return { error: 'Team member not found.' as const }
+  }
+  return { caller, target, restaurantId: caller.restaurantId }
+}
+
+export async function setCanCreateListsAction(
+  targetId: string,
+  value: boolean
+): Promise<{ error?: string }> {
+  const ctx = await requireManagerAndTarget(targetId)
+  if ('error' in ctx) return { error: ctx.error }
+
+  // The owner always retains list creation — don't let it be toggled off.
+  if (ctx.target.role === 'owner') {
+    return { error: "You can't change the owner's permissions." }
+  }
+  // Don't let a manager revoke their own list access and lock themselves out.
+  if (ctx.target.id === ctx.caller.id) {
+    return { error: "You can't change your own list permission." }
+  }
+  await setCanCreateLists(ctx.target.id, ctx.restaurantId, value)
+  revalidatePath('/team')
+  return {}
+}
+
+export async function setActiveAction(
+  targetId: string,
+  value: boolean
+): Promise<{ error?: string }> {
+  const ctx = await requireManagerAndTarget(targetId)
+  if ('error' in ctx) return { error: ctx.error }
+
+  if (ctx.target.id === ctx.caller.id) {
+    return { error: "You can't deactivate yourself." }
+  }
+  if (ctx.target.role === 'owner') {
+    return { error: "You can't deactivate the owner." }
+  }
+  await setProfileActive(ctx.target.id, ctx.restaurantId, value)
+  revalidatePath('/team')
+  return {}
 }
