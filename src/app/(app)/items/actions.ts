@@ -11,20 +11,23 @@ import {
   isPrepItemInUse,
   getPrepItemById,
 } from '@/lib/db/queries/prep-items'
-import { UNIT_VALUES } from '@/lib/units'
+import { isValidUnit } from '@/lib/db/queries/restaurant-units'
 
 export type ItemActionState = { error?: string; success?: boolean } | null
 
-// par quantity: optional positive decimal; empty string means "no par".
+// default amount: optional positive decimal; empty string means "no default".
 const itemSchema = z.object({
   name: z.string().trim().min(1, 'Item name is required').max(100),
+  description: z.string().trim().max(500).optional().or(z.literal('')),
   parQuantity: z
     .string()
     .trim()
-    .regex(/^\d*\.?\d+$/, 'Par quantity must be a number')
+    .regex(/^\d*\.?\d+$/, 'Default amount must be a number')
     .optional()
     .or(z.literal('')),
-  parUnit: z.enum(UNIT_VALUES).optional().or(z.literal('')),
+  // Unit is free text here; membership (built-in or custom) is checked in the action
+  // where the restaurant id is known.
+  parUnit: z.string().trim().max(20).optional().or(z.literal('')),
 })
 
 // Item management is gated on can_create_lists (the people who build lists own the
@@ -46,20 +49,26 @@ async function requireBuilder() {
   return { profile, restaurantId: profile.restaurantId }
 }
 
-function parseItem(formData: FormData) {
+// Parses + validates the item form. restaurantId is needed to validate a custom unit.
+async function parseItem(formData: FormData, restaurantId: string) {
   const parsed = itemSchema.safeParse({
     name: formData.get('name'),
+    description: formData.get('description') ?? '',
     parQuantity: formData.get('parQuantity') ?? '',
     parUnit: formData.get('parUnit') ?? '',
   })
   if (!parsed.success) return { error: parsed.error.issues[0].message }
-  const { name, parQuantity, parUnit } = parsed.data
-  // A par needs both a number and a unit to be meaningful; require them together.
+  const { name, description, parQuantity, parUnit } = parsed.data
+  // A default amount needs both a number and a unit to be meaningful; require together.
   if ((parQuantity && !parUnit) || (!parQuantity && parUnit)) {
-    return { error: 'Set both a par quantity and a unit, or leave both blank.' }
+    return { error: 'Set both a default amount and a unit, or leave both blank.' }
+  }
+  if (parUnit && !(await isValidUnit(restaurantId, parUnit))) {
+    return { error: 'Pick a valid unit.' }
   }
   return {
     name,
+    description: description ? description : null,
     parQuantity: parQuantity ? parQuantity : null,
     parUnit: parUnit ? parUnit : null,
   }
@@ -72,12 +81,13 @@ export async function createItemAction(
   const ctx = await requireBuilder()
   if ('error' in ctx) return { error: ctx.error }
 
-  const data = parseItem(formData)
+  const data = await parseItem(formData, ctx.restaurantId)
   if ('error' in data) return { error: data.error }
 
   await createPrepItem({
     restaurantId: ctx.restaurantId,
     name: data.name,
+    description: data.description,
     parQuantity: data.parQuantity,
     parUnit: data.parUnit,
     createdBy: ctx.profile.id,
@@ -96,11 +106,12 @@ export async function updateItemAction(
   const id = z.string().uuid().safeParse(formData.get('id'))
   if (!id.success) return { error: 'Invalid item.' }
 
-  const data = parseItem(formData)
+  const data = await parseItem(formData, ctx.restaurantId)
   if ('error' in data) return { error: data.error }
 
   await updatePrepItem(id.data, ctx.restaurantId, {
     name: data.name,
+    description: data.description,
     parQuantity: data.parQuantity,
     parUnit: data.parUnit,
   })

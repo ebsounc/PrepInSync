@@ -1,5 +1,7 @@
+import Link from 'next/link'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { SettingsIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { isManagementRole } from '@/lib/auth/roles'
@@ -27,8 +29,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect('/onboarding')
   }
 
+  // A deactivated member keeps a valid session (server actions already reject them),
+  // but must not be able to read any restaurant data — lock the whole app behind a
+  // dead-end screen with only a sign-out.
+  if (profile && !profile.isActive) {
+    return <DeactivatedScreen />
+  }
+
   const displayName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : user.email
   const onboarded = Boolean(profile?.restaurantId)
+  const isManagement = Boolean(profile && isManagementRole(profile.role))
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -36,6 +46,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <span className="font-semibold">KitchenPrep</span>
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-muted-foreground sm:block">{displayName}</span>
+          {onboarded && isManagement && (
+            <Button
+              render={<Link href="/settings" />}
+              nativeButton={false}
+              variant="ghost"
+              size="icon"
+              aria-label="Settings"
+            >
+              <SettingsIcon />
+            </Button>
+          )}
           <form action={logoutAction}>
             <Button type="submit" variant="outline" size="sm">
               Sign out
@@ -45,7 +66,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
       {/* Pad the bottom so the fixed nav never covers content */}
       <main className={onboarded ? 'flex-1 pb-20' : 'flex-1'}>{children}</main>
-      {onboarded && profile && <BottomNav showTeam={isManagementRole(profile.role)} />}
+      {onboarded && profile && <BottomNav showTeam={isManagement} />}
+    </div>
+  )
+}
+
+function DeactivatedScreen() {
+  return (
+    <div className="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center">
+      <h1 className="text-2xl font-semibold">Account deactivated</h1>
+      <p className="max-w-sm text-muted-foreground">
+        Your access to this kitchen has been turned off. Contact your manager if you think this is a
+        mistake.
+      </p>
+      <form action={logoutAction}>
+        <Button type="submit" variant="outline">
+          Sign out
+        </Button>
+      </form>
     </div>
   )
 }

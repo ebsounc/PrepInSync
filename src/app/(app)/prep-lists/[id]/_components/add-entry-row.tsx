@@ -3,7 +3,9 @@
 import { useActionState, useEffect, useState } from 'react'
 import { Loader2Icon, PlusIcon, StarIcon } from 'lucide-react'
 import { addEntryAction, type ListActionState } from '../../actions'
+import { addCustomUnitAction } from '../../../_actions/units'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { UnitSelect } from '@/components/unit-select'
 import {
@@ -13,20 +15,31 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
+import { formatQuantity } from '@/lib/units'
 import { cn } from '@/lib/utils'
+
+export type BuilderItem = {
+  id: string
+  name: string
+  parQuantity: string | null
+  parUnit: string | null
+}
 
 export function AddEntryRow({
   listId,
   items,
+  customUnits,
 }: {
   listId: string
-  items: { id: string; name: string }[]
+  items: BuilderItem[]
+  customUnits: string[]
 }) {
   const [state, action, isPending] = useActionState<ListActionState, FormData>(addEntryAction, null)
   const [itemId, setItemId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [unit, setUnit] = useState('')
   const [starred, setStarred] = useState(false)
+  const [notes, setNotes] = useState('')
 
   useEffect(() => {
     if (state?.success) {
@@ -34,8 +47,18 @@ export function AddEntryRow({
       setQuantity('')
       setUnit('')
       setStarred(false)
+      setNotes('')
     }
   }, [state])
+
+  // Picking an item prefills qty/unit from its default amount (still editable).
+  // Reset first so switching to an item with no default clears the previous values.
+  function handleItemChange(id: string) {
+    setItemId(id)
+    const item = items.find((i) => i.id === id)
+    setQuantity(item?.parQuantity ? formatQuantity(item.parQuantity) : '')
+    setUnit(item?.parUnit ?? '')
+  }
 
   if (items.length === 0) {
     return (
@@ -44,6 +67,8 @@ export function AddEntryRow({
       </p>
     )
   }
+
+  const selectedName = items.find((i) => i.id === itemId)?.name
 
   return (
     <form action={action} className="flex flex-col gap-3 rounded-xl border p-4">
@@ -57,9 +82,11 @@ export function AddEntryRow({
       )}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-foreground">Item</label>
-        <SelectField value={itemId} onValueChange={(v) => setItemId(v ?? '')}>
+        <SelectField value={itemId} onValueChange={(v) => handleItemChange(v ?? '')}>
           <SelectTrigger>
-            <SelectValue placeholder="Select item" />
+            {/* base-ui passes the raw id to the render fn; we show the item name
+                instead (the function child overrides the placeholder prop). */}
+            <SelectValue placeholder="Select item">{() => selectedName ?? 'Select item'}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {items.map((i) => (
@@ -84,7 +111,13 @@ export function AddEntryRow({
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-foreground">Unit</label>
-          <UnitSelect name="unit" value={unit} onValueChange={setUnit} />
+          <UnitSelect
+            name="unit"
+            value={unit}
+            onValueChange={setUnit}
+            customUnits={customUnits}
+            onAddUnit={addCustomUnitAction}
+          />
         </div>
         <Button
           type="button"
@@ -97,6 +130,17 @@ export function AddEntryRow({
         >
           <StarIcon className={cn(starred && 'fill-current text-amber-500')} />
         </Button>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-foreground">Prep note (optional)</label>
+        <Textarea
+          name="notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="e.g. dice fine, 1/4 inch"
+          maxLength={500}
+          spellCheck
+        />
       </div>
       <Button
         type="submit"

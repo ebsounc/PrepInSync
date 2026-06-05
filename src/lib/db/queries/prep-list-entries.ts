@@ -1,7 +1,6 @@
 import 'server-only'
 import { eq } from 'drizzle-orm'
 import { db, prepListEntries, prepLists } from '@/lib/db'
-import type { Unit } from '@/lib/units'
 
 export type PrepListEntry = typeof prepListEntries.$inferSelect
 
@@ -32,8 +31,9 @@ export async function addEntry(data: {
   prepListId: string
   prepItemId: string
   quantity: string
-  unit: Unit
+  unit: string
   isStarred: boolean
+  notes: string | null
 }): Promise<PrepListEntry> {
   const [row] = await db
     .insert(prepListEntries)
@@ -43,6 +43,7 @@ export async function addEntry(data: {
       quantity: data.quantity,
       unit: data.unit,
       isStarred: data.isStarred,
+      notes: data.notes,
     })
     .returning()
   return row
@@ -50,11 +51,16 @@ export async function addEntry(data: {
 
 export async function updateEntry(
   id: string,
-  data: { quantity: string; unit: Unit; isStarred: boolean }
+  data: { quantity: string; unit: string; isStarred: boolean; notes: string | null }
 ) {
   await db
     .update(prepListEntries)
-    .set({ quantity: data.quantity, unit: data.unit, isStarred: data.isStarred })
+    .set({
+      quantity: data.quantity,
+      unit: data.unit,
+      isStarred: data.isStarred,
+      notes: data.notes,
+    })
     .where(eq(prepListEntries.id, id))
 }
 
@@ -78,6 +84,7 @@ export async function toggleEntryCompletion(id: string, completed: boolean, user
     .where(eq(prepListEntries.id, id))
 }
 
-export async function setEntryNote(id: string, note: string | null) {
-  await db.update(prepListEntries).set({ notes: note }).where(eq(prepListEntries.id, id))
+// The cook's own note (separate from the builder's prep note in `notes`).
+export async function setEntryCookNote(id: string, note: string | null) {
+  await db.update(prepListEntries).set({ cookNote: note }).where(eq(prepListEntries.id, id))
 }

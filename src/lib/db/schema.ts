@@ -116,7 +116,11 @@ export const prepItems = pgTable(
       .notNull()
       .references(() => restaurants.id),
     name: text('name').notNull(),
+    description: text('description'), // optional: storage location, special instructions
     imageUrl: text('image_url'),
+    // par_* is the item's optional DEFAULT amount. Selecting the item on a prep list
+    // prefills the entry's quantity/unit from these (editable). Column names kept as
+    // "par" to avoid a rename migration; the UI labels them "Default amount".
     parQuantity: numeric('par_quantity'),
     parUnit: text('par_unit'),
     sourceLanguage: text('source_language', { enum: LANGUAGES })
@@ -134,6 +138,28 @@ export const prepItems = pgTable(
       inLiterals(t.sourceLanguage, LANGUAGES)
     ),
   ]
+)
+
+// ---------------------------------------------------------------------------
+// restaurant_units
+// Custom units a restaurant adds beyond the built-in set (e.g. "lexan", "6-pan").
+// Units are stored as free text on prep_items.par_unit and prep_list_entries.unit;
+// this table only widens the selectable list and the write-time validation allow-list.
+// ---------------------------------------------------------------------------
+export const restaurantUnits = pgTable(
+  'restaurant_units',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    restaurantId: uuid('restaurant_id')
+      .notNull()
+      .references(() => restaurants.id),
+    label: text('label').notNull(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => profiles.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.restaurantId, t.label)]
 )
 
 // ---------------------------------------------------------------------------
@@ -168,7 +194,8 @@ export const prepListEntries = pgTable('prep_list_entries', {
   quantity: numeric('quantity').notNull(),
   unit: text('unit').notNull(),
   isStarred: boolean('is_starred').notNull().default(false),
-  notes: text('notes'),
+  notes: text('notes'), // builder/prep note (instructions, set when building the list)
+  cookNote: text('cook_note'), // cook's note from the floor ("only half a case left")
   completed: boolean('completed').notNull().default(false),
   completedAt: timestamp('completed_at'),
   completedBy: uuid('completed_by').references(() => profiles.id),

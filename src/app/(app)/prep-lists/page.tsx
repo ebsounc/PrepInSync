@@ -24,7 +24,7 @@ export default async function PrepListsPage() {
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Prep lists</h1>
         {profile.canCreateLists && (
-          <Button render={<Link href="/prep-lists/new" />} className="min-h-[44px]">
+          <Button render={<Link href="/prep-lists/new" />} nativeButton={false} className="min-h-[44px]">
             <PlusIcon /> New list
           </Button>
         )}

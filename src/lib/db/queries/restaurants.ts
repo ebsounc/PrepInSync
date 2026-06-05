@@ -9,6 +9,16 @@ export async function getRestaurantById(id: string): Promise<Restaurant | null> 
   return rows[0] ?? null
 }
 
+export async function updateRestaurant(
+  id: string,
+  data: { name: string; timezone: string }
+) {
+  await db
+    .update(restaurants)
+    .set({ name: data.name, timezone: data.timezone })
+    .where(eq(restaurants.id, id))
+}
+
 // Creates the restaurant and updates the profile atomically.
 // Used only during account-owner onboarding.
 export async function createRestaurantAndOnboardProfile(

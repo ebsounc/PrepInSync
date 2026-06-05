@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getRestaurantById } from '@/lib/db/queries/restaurants'
 import { getPrepListsByRestaurant } from '@/lib/db/queries/prep-lists'
+import { formatListDate, getGreeting } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { PrepListCard } from '../_components/prep-list-card'
 
@@ -19,10 +20,10 @@ export default async function DashboardPage() {
   if (!profile?.restaurantId) redirect('/onboarding')
 
   const restaurant = await getRestaurantById(profile.restaurantId)
+  const timezone = restaurant?.timezone ?? 'UTC'
   // "Today" is computed in the restaurant's timezone (en-CA formats as YYYY-MM-DD).
-  const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone: restaurant?.timezone ?? 'UTC',
-  }).format(new Date())
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
+  const greeting = getGreeting(timezone)
 
   const lists = await getPrepListsByRestaurant(profile.restaurantId)
   const todays = lists.filter((l) => l.date === today)
@@ -31,11 +32,17 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold">Hi, {profile.firstName}</h1>
-          <p className="text-sm text-muted-foreground">Today · {today}</p>
+          <h1 className="truncate text-2xl font-semibold">
+            {greeting}, {profile.firstName}
+          </h1>
+          <p className="text-sm text-muted-foreground">{formatListDate(today)}</p>
         </div>
         {profile.canCreateLists && (
-          <Button render={<Link href="/prep-lists/new" />} className="min-h-[44px] shrink-0">
+          <Button
+            render={<Link href="/prep-lists/new" />}
+            nativeButton={false}
+            className="min-h-[44px] shrink-0"
+          >
             <PlusIcon /> New list
           </Button>
         )}

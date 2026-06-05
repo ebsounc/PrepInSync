@@ -15,6 +15,13 @@
       "when": 1780336546114,
       "tag": "0001_blue_prima",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780599114887,
+      "tag": "0002_round2_units_notes_description",
+      "breakpoints": true
     }
   ]
 }

@@ -22,6 +22,9 @@ common way to break things.
 | Table & column DDL, `CHECK` constraints, unique indexes | **Drizzle** | `src/lib/db/schema.ts` → `drizzle/migrations/*.sql` |
 | RLS policies, the `auth.users` FK, the signup trigger | **Raw SQL** (manual) | `supabase/*.sql` |
 
+> When you add a Drizzle-owned table, you still hand-write its RLS in a new
+> `supabase/*.sql` file (e.g. `restaurant_units` → `supabase/add_restaurant_units_rls.sql`).
+
 Why split: Drizzle can't model cross-schema references (`profiles.id` →
 `auth.users.id`), RLS policies, or triggers, so those are hand-written SQL applied
 through Supabase. Everything Drizzle *can* model goes through Drizzle so the
@@ -86,7 +89,7 @@ user's own restaurant too, even though writes normally go server-side.
 
 ## RLS summary (per table)
 
-RLS is **enabled on all 9 tables**. Policies as currently deployed:
+RLS is **enabled on all 10 tables**. Policies as currently deployed:
 
 | Table | Policy | Command | Rule |
 |---|---|---|---|
@@ -96,6 +99,7 @@ RLS is **enabled on all 9 tables**. Policies as currently deployed:
 | `profiles` | users update own profile | UPDATE | `id = auth.uid()` (self only) |
 | `profiles` | service role insert profiles | INSERT | `WITH CHECK (true)` — only the `SECURITY DEFINER` trigger inserts |
 | `prep_items` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
+| `restaurant_units` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
 | `prep_lists` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
 | `prep_list_entries` | restaurant isolation | ALL | parent `prep_list` is in caller's restaurant |
 | `recipes` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
@@ -103,8 +107,9 @@ RLS is **enabled on all 9 tables**. Policies as currently deployed:
 | `invites` | users read own restaurant invites | SELECT | `restaurant_id` = caller's restaurant (writes are server-side) |
 | `translations` | authenticated users access translations | ALL | `USING (true)` for `authenticated` ⚠️ **see gap below** |
 
-Source: [`supabase/rls_and_triggers.sql`](../supabase/rls_and_triggers.sql) and
-[`supabase/add_invites_table.sql`](../supabase/add_invites_table.sql).
+Source: [`supabase/rls_and_triggers.sql`](../supabase/rls_and_triggers.sql),
+[`supabase/add_invites_table.sql`](../supabase/add_invites_table.sql), and
+[`supabase/add_restaurant_units_rls.sql`](../supabase/add_restaurant_units_rls.sql).
 
 ### ⚠️ Known gap — tighten before Phase 3
 
@@ -149,6 +154,18 @@ is a one-line constraint change, consistent with the lazy-translation design in
 `CLAUDE.md`.
 
 ---
+
+## Column gotchas (name ≠ meaning)
+
+- **`prep_items.par_quantity` / `par_unit` are the item's *default amount*.** Selecting
+  an item on a prep list prefills the entry's quantity/unit from these (editable). The
+  `par_` names were kept to avoid a rename migration; the UI labels them "Default amount."
+- **`prep_list_entries.notes` is the builder/prep note** (instructions set when building
+  the list). **`cook_note`** is the separate note a cook leaves from the floor. Don't
+  conflate them — the cook action writes `cook_note`, the builder forms write `notes`.
+- **Units are free text** on `par_unit` and `prep_list_entries.unit`: a built-in value
+  (`lib/units.ts`) *or* a restaurant's custom unit (`restaurant_units.label`). Writes are
+  validated by `isValidUnit()` in `lib/db/queries/restaurant-units.ts`.
 
 ## Translation cache model (pointer)
 

@@ -53,13 +53,14 @@ The hard part isn't whether the chef finds it useful. It's adoption — see open
 - `can_create_lists` permission flag: true by default for management, false for execution, toggleable per person by management
 
 **Prep workflow**
-- Item database (restaurant inputs their prep items, with optional par levels)
+- Item database (restaurant inputs their prep items, with an optional **default amount** and a description for storage/special instructions)
 - Quantities support decimals (e.g. 1.5 quarts) — stored as `numeric`
-- Units of measure handled correctly (lbs/kg, oz/g, quarts/liters, cases, each)
-- Management builds the prep list — selects items, sets quantities, optionally stars priority items (starred items float to top)
-- All staff see the full list; tap items to mark complete
+- Units of measure handled correctly (lbs/kg, oz/g, quarts/liters, cases, trays, each), pluralized for display ("2 lbs"). Restaurants can add their own **custom units** (saved for reuse)
+- Management builds the prep list — selects items (quantity/unit prefill from the item's default amount, still editable), sets quantities, optionally stars priority items (starred items float to top), and can attach a **prep note** (instructions)
+- All staff see the full list; tap items to mark complete; a cook can leave their own **cook note** (separate from the prep note)
 - Real-time completion status visible to management
-- Soft-delete for team members (`is_active` flag) — historical completion data is preserved
+- Soft-delete for team members (`is_active` flag) — historical completion data is preserved; a deactivated member is locked out of the app entirely
+- Management can edit restaurant info (name, timezone) and manage custom units on a **Settings** page
 
 **Recipes (optional per item)**
 - Items can have an attached recipe or not — supports both "experienced staff, no recipes needed" and "newer staff, recipes required" use cases
@@ -80,7 +81,8 @@ The hard part isn't whether the chef finds it useful. It's adoption — see open
 - When source text is edited, invalidate its cached translations so they regenerate on next request.
 
 **Notes & comments**
-- Prep cook can leave a note on an item ("we're out of cilantro", "only half a case left")
+- The builder can attach a prep note (instructions) to a list item; the cook sees it read-only
+- Prep cook can leave their own note on an item ("we're out of cilantro", "only half a case left") — stored separately so it never overwrites the prep note
 - Chef sees notes in real time
 
 **Graceful offline tolerance** *(not full offline mode)*

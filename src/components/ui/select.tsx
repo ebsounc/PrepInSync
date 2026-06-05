@@ -29,7 +29,9 @@ const SelectValue = Select.Value
 function SelectContent({ className, children, ...props }: Select.Popup.Props) {
   return (
     <Select.Portal>
-      <Select.Positioner sideOffset={4}>
+      {/* alignItemWithTrigger=false → a normal dropdown placed below the trigger
+          rather than overlaying it, so tapping outside to dismiss is obvious on mobile. */}
+      <Select.Positioner sideOffset={4} alignItemWithTrigger={false}>
         <Select.Popup
           data-slot="select-content"
           className={cn(

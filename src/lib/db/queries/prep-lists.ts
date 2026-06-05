@@ -14,6 +14,7 @@ export type PrepListEntryWithMeta = {
   unit: string
   isStarred: boolean
   notes: string | null
+  cookNote: string | null
   completed: boolean
   completedAt: Date | null
   completedByName: string | null
@@ -55,7 +56,12 @@ export async function getPrepListById(
   return rows[0] ?? null
 }
 
-export async function getPrepListEntries(listId: string): Promise<PrepListEntryWithMeta[]> {
+// restaurantId scopes the read through the parent list, so the query is
+// self-defending even if a caller forgets to verify list ownership first.
+export async function getPrepListEntries(
+  listId: string,
+  restaurantId: string
+): Promise<PrepListEntryWithMeta[]> {
   const rows = await db
     .select({
       id: prepListEntries.id,
@@ -65,15 +71,17 @@ export async function getPrepListEntries(listId: string): Promise<PrepListEntryW
       unit: prepListEntries.unit,
       isStarred: prepListEntries.isStarred,
       notes: prepListEntries.notes,
+      cookNote: prepListEntries.cookNote,
       completed: prepListEntries.completed,
       completedAt: prepListEntries.completedAt,
       completedByFirst: profiles.firstName,
       completedByLast: profiles.lastName,
     })
     .from(prepListEntries)
+    .innerJoin(prepLists, eq(prepLists.id, prepListEntries.prepListId))
     .innerJoin(prepItems, eq(prepItems.id, prepListEntries.prepItemId))
     .leftJoin(profiles, eq(profiles.id, prepListEntries.completedBy))
-    .where(eq(prepListEntries.prepListId, listId))
+    .where(and(eq(prepListEntries.prepListId, listId), eq(prepLists.restaurantId, restaurantId)))
     .orderBy(desc(prepListEntries.isStarred), asc(prepListEntries.createdAt))
 
   return rows.map((r) => ({
@@ -84,6 +92,7 @@ export async function getPrepListEntries(listId: string): Promise<PrepListEntryW
     unit: r.unit,
     isStarred: r.isStarred,
     notes: r.notes,
+    cookNote: r.cookNote,
     completed: r.completed,
     completedAt: r.completedAt,
     completedByName:

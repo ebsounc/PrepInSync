@@ -29,7 +29,7 @@ export function NewListForm() {
       )}
       <Field name="title">
         <FieldLabel>Title</FieldLabel>
-        <Input type="text" name="title" required placeholder="Tonight's prep" autoFocus />
+        <Input type="text" name="title" required placeholder="e.g. Friday a.m. prep" autoFocus spellCheck />
       </Field>
       <Field name="date">
         <FieldLabel>Date</FieldLabel>

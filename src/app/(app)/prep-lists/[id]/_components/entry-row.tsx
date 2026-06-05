@@ -12,14 +12,15 @@ import {
 } from 'lucide-react'
 import {
   toggleCompletionAction,
-  saveNoteAction,
+  saveCookNoteAction,
   setStarAction,
   removeEntryAction,
   updateEntryAction,
   type ListActionState,
 } from '../../actions'
+import { addCustomUnitAction } from '../../../_actions/units'
 import type { PrepListEntryWithMeta } from '@/lib/db/queries/prep-lists'
-import { formatQuantity } from '@/lib/units'
+import { formatAmount, formatQuantity } from '@/lib/units'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -29,14 +30,16 @@ import { cn } from '@/lib/utils'
 export function EntryRow({
   entry,
   canManage,
+  customUnits,
 }: {
   entry: PrepListEntryWithMeta
   canManage: boolean
+  customUnits: string[]
 }) {
   const [editing, setEditing] = useState(false)
 
   if (editing) {
-    return <EditEntryForm entry={entry} onDone={() => setEditing(false)} />
+    return <EditEntryForm entry={entry} customUnits={customUnits} onDone={() => setEditing(false)} />
   }
   return <DisplayEntry entry={entry} canManage={canManage} onEdit={() => setEditing(true)} />
 }
@@ -83,7 +86,7 @@ function DisplayEntry({
               <span className="truncate">{entry.itemName}</span>
             </span>
             <span className="text-sm text-muted-foreground">
-              {formatQuantity(entry.quantity)} {entry.unit}
+              {formatAmount(entry.quantity, entry.unit)}
             </span>
           </span>
         </button>
@@ -98,11 +101,18 @@ function DisplayEntry({
         <p className="px-3 pb-1 text-xs text-muted-foreground">Done by {entry.completedByName}</p>
       )}
 
-      <NoteSection entry={entry} />
+      {/* Prep note: the builder's instructions, read-only here (edited via Edit). */}
+      {entry.notes && (
+        <p className="px-3 pb-1 text-sm">
+          <span className="text-muted-foreground">Prep note:</span> {entry.notes}
+        </p>
+      )}
+
+      <CookNoteSection entry={entry} />
 
       {canManage && (
         <div className="flex gap-1 border-t px-2 py-1">
-          <Button type="button" variant="ghost" size="sm" className="min-h-[44px]" onClick={onEdit}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-[48px]" onClick={onEdit}>
             <PencilIcon /> Edit
           </Button>
           <RemoveEntryButton id={entry.id} />
@@ -137,7 +147,7 @@ function RemoveEntryButton({ id }: { id: string }) {
       type="button"
       variant="ghost"
       size="sm"
-      className="min-h-[44px] text-destructive"
+      className="min-h-[48px] text-destructive"
       disabled={pending}
       onClick={() => start(() => removeEntryAction(id).then(() => {}))}
     >
@@ -152,37 +162,39 @@ function RemoveEntryButton({ id }: { id: string }) {
   )
 }
 
-function NoteSection({ entry }: { entry: PrepListEntryWithMeta }) {
+// The cook's own note — editable by anyone working the list, separate from the
+// builder's prep note above.
+function CookNoteSection({ entry }: { entry: PrepListEntryWithMeta }) {
   const [open, setOpen] = useState(false)
-  const [value, setValue] = useState(entry.notes ?? '')
+  const [value, setValue] = useState(entry.cookNote ?? '')
   const [pending, start] = useTransition()
 
   if (!open) {
     return (
       <div className="px-3 pb-2">
-        {entry.notes ? (
+        {entry.cookNote ? (
           <button
             type="button"
             onClick={() => {
-              setValue(entry.notes ?? '')
+              setValue(entry.cookNote ?? '')
               setOpen(true)
             }}
             className="text-left text-sm underline-offset-2 hover:underline"
           >
-            <span className="text-muted-foreground">Note:</span> {entry.notes}
+            <span className="text-muted-foreground">Note:</span> {entry.cookNote}
           </button>
         ) : (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="min-h-[44px]"
+            className="min-h-[48px]"
             onClick={() => {
               setValue('')
               setOpen(true)
             }}
           >
-            <MessageSquareIcon /> Add note
+            <MessageSquareIcon /> Add your own note
           </Button>
         )}
       </div>
@@ -196,15 +208,16 @@ function NoteSection({ entry }: { entry: PrepListEntryWithMeta }) {
         onChange={(e) => setValue(e.target.value)}
         placeholder="e.g. only half a case left"
         maxLength={500}
+        spellCheck
         autoFocus
       />
       <div className="flex gap-2">
         <Button
           type="button"
           size="sm"
-          className="min-h-[44px]"
+          className="min-h-[48px]"
           disabled={pending}
-          onClick={() => start(() => saveNoteAction(entry.id, value).then(() => setOpen(false)))}
+          onClick={() => start(() => saveCookNoteAction(entry.id, value).then(() => setOpen(false)))}
         >
           {pending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save note'}
         </Button>
@@ -212,7 +225,7 @@ function NoteSection({ entry }: { entry: PrepListEntryWithMeta }) {
           type="button"
           variant="outline"
           size="sm"
-          className="min-h-[44px]"
+          className="min-h-[48px]"
           onClick={() => setOpen(false)}
         >
           Cancel
@@ -224,9 +237,11 @@ function NoteSection({ entry }: { entry: PrepListEntryWithMeta }) {
 
 function EditEntryForm({
   entry,
+  customUnits,
   onDone,
 }: {
   entry: PrepListEntryWithMeta
+  customUnits: string[]
   onDone: () => void
 }) {
   const [state, action, isPending] = useActionState<ListActionState, FormData>(
@@ -263,7 +278,13 @@ function EditEntryForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-foreground">Unit</label>
-            <UnitSelect name="unit" value={unit} onValueChange={setUnit} />
+            <UnitSelect
+              name="unit"
+              value={unit}
+              onValueChange={setUnit}
+              customUnits={customUnits}
+              onAddUnit={addCustomUnitAction}
+            />
           </div>
           <Button
             type="button"
@@ -277,11 +298,21 @@ function EditEntryForm({
             <StarIcon className={cn(starred && 'fill-current text-amber-500')} />
           </Button>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground">Prep note (optional)</label>
+          <Textarea
+            name="notes"
+            defaultValue={entry.notes ?? ''}
+            placeholder="e.g. dice fine, 1/4 inch"
+            maxLength={500}
+            spellCheck
+          />
+        </div>
         <div className="flex gap-2">
-          <Button type="submit" className="min-h-[44px] flex-1" disabled={isPending || !unit}>
+          <Button type="submit" className="min-h-[48px] flex-1" disabled={isPending || !unit}>
             {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
           </Button>
-          <Button type="button" variant="outline" className="min-h-[44px]" onClick={onDone}>
+          <Button type="button" variant="outline" className="min-h-[48px]" onClick={onDone}>
             Cancel
           </Button>
         </div>

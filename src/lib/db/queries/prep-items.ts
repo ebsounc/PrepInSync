@@ -1,7 +1,6 @@
 import 'server-only'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { db, prepItems, prepListEntries } from '@/lib/db'
-import type { Unit } from '@/lib/units'
 
 export type PrepItem = typeof prepItems.$inferSelect
 
@@ -29,8 +28,9 @@ export async function getPrepItemById(
 export async function createPrepItem(data: {
   restaurantId: string
   name: string
+  description: string | null
   parQuantity: string | null
-  parUnit: Unit | null
+  parUnit: string | null
   createdBy: string
 }): Promise<PrepItem> {
   const [row] = await db
@@ -38,6 +38,7 @@ export async function createPrepItem(data: {
     .values({
       restaurantId: data.restaurantId,
       name: data.name,
+      description: data.description,
       parQuantity: data.parQuantity,
       parUnit: data.parUnit,
       createdBy: data.createdBy,
@@ -50,12 +51,13 @@ export async function createPrepItem(data: {
 export async function updatePrepItem(
   id: string,
   restaurantId: string,
-  data: { name: string; parQuantity: string | null; parUnit: Unit | null }
+  data: { name: string; description: string | null; parQuantity: string | null; parUnit: string | null }
 ) {
   await db
     .update(prepItems)
     .set({
       name: data.name,
+      description: data.description,
       parQuantity: data.parQuantity,
       parUnit: data.parUnit,
       updatedAt: new Date(),

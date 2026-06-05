@@ -1,24 +1,50 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
-import { Loader2Icon, PencilIcon, Trash2Icon } from 'lucide-react'
+import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import {
   createItemAction,
   updateItemAction,
   deleteItemAction,
   type ItemActionState,
 } from '../actions'
+import { addCustomUnitAction } from '../../_actions/units'
 import type { PrepItem } from '@/lib/db/queries/prep-items'
-import { formatQuantity } from '@/lib/units'
+import { formatAmount } from '@/lib/units'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { UnitSelect } from '@/components/unit-select'
 
-export function ItemsList({ items, canManage }: { items: PrepItem[]; canManage: boolean }) {
+export function ItemsList({
+  items,
+  canManage,
+  customUnits,
+}: {
+  items: PrepItem[]
+  canManage: boolean
+  customUnits: string[]
+}) {
+  // Open inline when the catalog is empty; otherwise collapse to a button so the
+  // list isn't pushed down by the form (and we avoid deeply nested dropdowns).
+  const [expanded, setExpanded] = useState(items.length === 0)
+
   return (
     <div className="flex flex-col gap-5">
-      {canManage && <AddItemForm />}
+      {canManage &&
+        (expanded ? (
+          <AddItemForm customUnits={customUnits} onClose={items.length === 0 ? undefined : () => setExpanded(false)} />
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-[48px] justify-start text-base"
+            onClick={() => setExpanded(true)}
+          >
+            <PlusIcon /> Add an item
+          </Button>
+        ))}
       {items.length === 0 ? (
         <p className="text-muted-foreground">
           {canManage ? 'No items yet. Add your first prep item above.' : 'No items yet.'}
@@ -26,7 +52,7 @@ export function ItemsList({ items, canManage }: { items: PrepItem[]; canManage: 
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
-            <ItemRow key={item.id} item={item} canManage={canManage} />
+            <ItemRow key={item.id} item={item} canManage={canManage} customUnits={customUnits} />
           ))}
         </ul>
       )}
@@ -42,7 +68,13 @@ function ErrorBanner({ message }: { message: string }) {
   )
 }
 
-function AddItemForm() {
+function AddItemForm({
+  customUnits,
+  onClose,
+}: {
+  customUnits: string[]
+  onClose?: () => void
+}) {
   const [state, action, isPending] = useActionState<ItemActionState, FormData>(
     createItemAction,
     null
@@ -63,39 +95,68 @@ function AddItemForm() {
       {state?.error && <ErrorBanner message={state.error} />}
       <Field name="name">
         <FieldLabel>Name</FieldLabel>
-        <Input type="text" name="name" required placeholder="Diced onions" />
+        <Input type="text" name="name" required placeholder="Diced onions" spellCheck />
+      </Field>
+      <Field name="description">
+        <FieldLabel>Description (optional)</FieldLabel>
+        <Textarea name="description" placeholder="e.g. stored in the walk-in, dice fine" maxLength={500} spellCheck />
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field name="parQuantity">
-          <FieldLabel>Par quantity (optional)</FieldLabel>
+          <FieldLabel>Default amount (optional)</FieldLabel>
           <Input type="text" inputMode="decimal" name="parQuantity" placeholder="2" />
         </Field>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Par unit</label>
-          <UnitSelect name="parUnit" value={unit} onValueChange={setUnit} />
+          <label className="text-sm font-medium text-foreground">Unit</label>
+          <UnitSelect
+            name="parUnit"
+            value={unit}
+            onValueChange={setUnit}
+            customUnits={customUnits}
+            clearable
+            onAddUnit={addCustomUnitAction}
+          />
         </div>
       </div>
-      <Button type="submit" className="min-h-[48px] text-base" disabled={isPending}>
-        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Add item'}
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" className="min-h-[48px] flex-1 text-base" disabled={isPending}>
+          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Add item'}
+        </Button>
+        {onClose && (
+          <Button type="button" variant="outline" className="min-h-[48px]" onClick={onClose}>
+            Done
+          </Button>
+        )}
+      </div>
     </form>
   )
 }
 
-function ItemRow({ item, canManage }: { item: PrepItem; canManage: boolean }) {
+function ItemRow({
+  item,
+  canManage,
+  customUnits,
+}: {
+  item: PrepItem
+  canManage: boolean
+  customUnits: string[]
+}) {
   const [editing, setEditing] = useState(false)
 
   if (editing) {
-    return <EditItemForm item={item} onDone={() => setEditing(false)} />
+    return <EditItemForm item={item} customUnits={customUnits} onDone={() => setEditing(false)} />
   }
 
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5">
       <div className="min-w-0">
         <div className="truncate font-medium">{item.name}</div>
+        {item.description && (
+          <div className="truncate text-sm text-muted-foreground">{item.description}</div>
+        )}
         {item.parQuantity && (
           <div className="text-sm text-muted-foreground">
-            Par: {formatQuantity(item.parQuantity)} {item.parUnit}
+            Default: {formatAmount(item.parQuantity, item.parUnit)}
           </div>
         )}
       </div>
@@ -145,7 +206,15 @@ function DeleteItemButton({ id, name }: { id: string; name: string }) {
   )
 }
 
-function EditItemForm({ item, onDone }: { item: PrepItem; onDone: () => void }) {
+function EditItemForm({
+  item,
+  customUnits,
+  onDone,
+}: {
+  item: PrepItem
+  customUnits: string[]
+  onDone: () => void
+}) {
   const [state, action, isPending] = useActionState<ItemActionState, FormData>(
     updateItemAction,
     null
@@ -162,28 +231,45 @@ function EditItemForm({ item, onDone }: { item: PrepItem; onDone: () => void }) 
       {state?.error && <ErrorBanner message={state.error} />}
       <Field name="name">
         <FieldLabel>Name</FieldLabel>
-        <Input type="text" name="name" required defaultValue={item.name} />
+        <Input type="text" name="name" required defaultValue={item.name} spellCheck />
+      </Field>
+      <Field name="description">
+        <FieldLabel>Description (optional)</FieldLabel>
+        <Textarea
+          name="description"
+          defaultValue={item.description ?? ''}
+          placeholder="e.g. stored in the walk-in, dice fine"
+          maxLength={500}
+          spellCheck
+        />
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field name="parQuantity">
-          <FieldLabel>Par quantity</FieldLabel>
+          <FieldLabel>Default amount (optional)</FieldLabel>
           <Input
             type="text"
             inputMode="decimal"
             name="parQuantity"
-            defaultValue={item.parQuantity ? formatQuantity(item.parQuantity) : ''}
+            defaultValue={item.parQuantity ? Number(item.parQuantity).toString() : ''}
           />
         </Field>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Par unit</label>
-          <UnitSelect name="parUnit" value={unit} onValueChange={setUnit} />
+          <label className="text-sm font-medium text-foreground">Unit</label>
+          <UnitSelect
+            name="parUnit"
+            value={unit}
+            onValueChange={setUnit}
+            customUnits={customUnits}
+            clearable
+            onAddUnit={addCustomUnitAction}
+          />
         </div>
       </div>
       <div className="flex gap-2">
-        <Button type="submit" className="min-h-[44px] flex-1" disabled={isPending}>
+        <Button type="submit" className="min-h-[48px] flex-1" disabled={isPending}>
           {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
         </Button>
-        <Button type="button" variant="outline" className="min-h-[44px]" onClick={onDone}>
+        <Button type="button" variant="outline" className="min-h-[48px]" onClick={onDone}>
           Cancel
         </Button>
       </div>

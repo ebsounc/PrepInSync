@@ -13,10 +13,10 @@ import {
   removeEntry,
   setEntryStarred,
   toggleEntryCompletion,
-  setEntryNote,
+  setEntryCookNote,
   getEntryAccess,
 } from '@/lib/db/queries/prep-list-entries'
-import { UNIT_VALUES } from '@/lib/units'
+import { isValidUnit } from '@/lib/db/queries/restaurant-units'
 
 export type ListActionState = { error?: string; success?: boolean } | null
 
@@ -85,8 +85,10 @@ const entrySchema = z.object({
     .string()
     .trim()
     .regex(/^\d*\.?\d+$/, 'Quantity must be a number'),
-  unit: z.enum(UNIT_VALUES, { message: 'Pick a unit' }),
+  // Unit membership (built-in or restaurant custom) is checked in the action.
+  unit: z.string().trim().min(1, 'Pick a unit').max(20),
   isStarred: z.string().optional(),
+  notes: z.string().trim().max(500).optional().or(z.literal('')),
 })
 
 export async function addEntryAction(
@@ -108,8 +110,12 @@ export async function addEntryAction(
     quantity: formData.get('quantity'),
     unit: formData.get('unit'),
     isStarred: formData.get('isStarred') ?? undefined,
+    notes: formData.get('notes') ?? undefined,
   })
   if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!(await isValidUnit(ctx.restaurantId, parsed.data.unit))) {
+    return { error: 'Pick a valid unit.' }
+  }
 
   const item = await getPrepItemById(parsed.data.prepItemId, ctx.restaurantId)
   if (!item) return { error: 'Item not found.' }
@@ -120,6 +126,7 @@ export async function addEntryAction(
     quantity: parsed.data.quantity,
     unit: parsed.data.unit,
     isStarred: parsed.data.isStarred === 'true',
+    notes: parsed.data.notes ? parsed.data.notes : null,
   })
   revalidatePath(`/prep-lists/${list.id}`)
   return { success: true }
@@ -130,8 +137,9 @@ const updateEntrySchema = z.object({
     .string()
     .trim()
     .regex(/^\d*\.?\d+$/, 'Quantity must be a number'),
-  unit: z.enum(UNIT_VALUES, { message: 'Pick a unit' }),
+  unit: z.string().trim().min(1, 'Pick a unit').max(20),
   isStarred: z.string().optional(),
+  notes: z.string().trim().max(500).optional().or(z.literal('')),
 })
 
 export async function updateEntryAction(
@@ -150,13 +158,18 @@ export async function updateEntryAction(
     quantity: formData.get('quantity'),
     unit: formData.get('unit'),
     isStarred: formData.get('isStarred') ?? undefined,
+    notes: formData.get('notes') ?? undefined,
   })
   if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!(await isValidUnit(ctx.restaurantId, parsed.data.unit))) {
+    return { error: 'Pick a valid unit.' }
+  }
 
   await updateEntry(entry.id, {
     quantity: parsed.data.quantity,
     unit: parsed.data.unit,
     isStarred: parsed.data.isStarred === 'true',
+    notes: parsed.data.notes ? parsed.data.notes : null,
   })
   revalidatePath(`/prep-lists/${entry.prepListId}`)
   return { success: true }
@@ -206,13 +219,15 @@ export async function toggleCompletionAction(entryId: string): Promise<{ error?:
   return {}
 }
 
-export async function saveNoteAction(entryId: string, note: string): Promise<{ error?: string }> {
+// The cook's own note (a separate field from the builder's prep note). Any active
+// member can leave one — it's the core "we're out of cilantro" interaction.
+export async function saveCookNoteAction(entryId: string, note: string): Promise<{ error?: string }> {
   const ctx = await requireMember()
   if ('error' in ctx) return { error: ctx.error }
   const entry = await accessibleEntry(entryId, ctx.restaurantId)
   if (!entry) return { error: 'Entry not found.' }
   const trimmed = note.trim().slice(0, 500)
-  await setEntryNote(entry.id, trimmed.length ? trimmed : null)
+  await setEntryCookNote(entry.id, trimmed.length ? trimmed : null)
   revalidatePath(`/prep-lists/${entry.prepListId}`)
   return {}
 }
