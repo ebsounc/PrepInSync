@@ -15,19 +15,24 @@ import { isValidUnit } from '@/lib/db/queries/restaurant-units'
 
 export type ItemActionState = { error?: string; success?: boolean } | null
 
-// default amount: optional positive decimal; empty string means "no default".
+// Amounts are optional positive decimals; empty string means "not set". Unit is free
+// text here; membership (built-in or custom) is checked in the action where the
+// restaurant id is known.
+const optionalAmount = z
+  .string()
+  .trim()
+  .regex(/^\d*\.?\d+$/, 'Amount must be a number')
+  .optional()
+  .or(z.literal(''))
+const optionalUnit = z.string().trim().max(20).optional().or(z.literal(''))
+
 const itemSchema = z.object({
   name: z.string().trim().min(1, 'Item name is required').max(100),
   description: z.string().trim().max(500).optional().or(z.literal('')),
-  parQuantity: z
-    .string()
-    .trim()
-    .regex(/^\d*\.?\d+$/, 'Default amount must be a number')
-    .optional()
-    .or(z.literal('')),
-  // Unit is free text here; membership (built-in or custom) is checked in the action
-  // where the restaurant id is known.
-  parUnit: z.string().trim().max(20).optional().or(z.literal('')),
+  defaultQuantity: optionalAmount,
+  defaultUnit: optionalUnit,
+  parQuantity: optionalAmount,
+  parUnit: optionalUnit,
 })
 
 // Item management is gated on can_create_lists (the people who build lists own the
@@ -54,21 +59,29 @@ async function parseItem(formData: FormData, restaurantId: string) {
   const parsed = itemSchema.safeParse({
     name: formData.get('name'),
     description: formData.get('description') ?? '',
+    defaultQuantity: formData.get('defaultQuantity') ?? '',
+    defaultUnit: formData.get('defaultUnit') ?? '',
     parQuantity: formData.get('parQuantity') ?? '',
     parUnit: formData.get('parUnit') ?? '',
   })
   if (!parsed.success) return { error: parsed.error.issues[0].message }
-  const { name, description, parQuantity, parUnit } = parsed.data
-  // A default amount needs both a number and a unit to be meaningful; require together.
-  if ((parQuantity && !parUnit) || (!parQuantity && parUnit)) {
+  const { name, description, defaultQuantity, defaultUnit, parQuantity, parUnit } = parsed.data
+
+  // Each amount needs both a number and a unit to be meaningful; require them together.
+  if ((defaultQuantity && !defaultUnit) || (!defaultQuantity && defaultUnit)) {
     return { error: 'Set both a default amount and a unit, or leave both blank.' }
   }
-  if (parUnit && !(await isValidUnit(restaurantId, parUnit))) {
-    return { error: 'Pick a valid unit.' }
+  if ((parQuantity && !parUnit) || (!parQuantity && parUnit)) {
+    return { error: 'Set both a par amount and a unit, or leave both blank.' }
+  }
+  for (const u of [defaultUnit, parUnit]) {
+    if (u && !(await isValidUnit(restaurantId, u))) return { error: 'Pick a valid unit.' }
   }
   return {
     name,
     description: description ? description : null,
+    defaultQuantity: defaultQuantity ? defaultQuantity : null,
+    defaultUnit: defaultUnit ? defaultUnit : null,
     parQuantity: parQuantity ? parQuantity : null,
     parUnit: parUnit ? parUnit : null,
   }
@@ -88,6 +101,8 @@ export async function createItemAction(
     restaurantId: ctx.restaurantId,
     name: data.name,
     description: data.description,
+    defaultQuantity: data.defaultQuantity,
+    defaultUnit: data.defaultUnit,
     parQuantity: data.parQuantity,
     parUnit: data.parUnit,
     createdBy: ctx.profile.id,
@@ -112,6 +127,8 @@ export async function updateItemAction(
   await updatePrepItem(id.data, ctx.restaurantId, {
     name: data.name,
     description: data.description,
+    defaultQuantity: data.defaultQuantity,
+    defaultUnit: data.defaultUnit,
     parQuantity: data.parQuantity,
     parUnit: data.parUnit,
   })

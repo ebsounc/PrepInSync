@@ -8,6 +8,7 @@ import {
   jsonb,
   date,
   unique,
+  uniqueIndex,
   check,
 } from 'drizzle-orm/pg-core'
 import { sql, type AnyColumn } from 'drizzle-orm'
@@ -29,6 +30,9 @@ const ROLES = [
 
 const LANGUAGES = ['en', 'es'] as const
 
+// When a restaurant typically builds its prep lists — drives the new-list date/title default.
+const LIST_DAYS = ['today', 'next_day'] as const
+
 // Builds `"<col>" in ('a', 'b', ...)` for a CHECK constraint. We can't use
 // drizzle's inLiterals() here: it emits bound parameters ($1, $2) which are invalid
 // inside a generated DDL migration. Values are hardcoded constants with no quotes,
@@ -40,12 +44,17 @@ const inLiterals = (column: AnyColumn, values: readonly string[]) =>
 // restaurants
 // One row per restaurant account. Top-level tenant boundary.
 // ---------------------------------------------------------------------------
-export const restaurants = pgTable('restaurants', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: text('name').notNull(),
-  timezone: text('timezone').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+export const restaurants = pgTable(
+  'restaurants',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: text('name').notNull(),
+    timezone: text('timezone').notNull(),
+    listDefaultDay: text('list_default_day', { enum: LIST_DAYS }).notNull().default('today'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [check('restaurants_list_default_day_check', inLiterals(t.listDefaultDay, LIST_DAYS))]
+)
 
 // ---------------------------------------------------------------------------
 // profiles
@@ -75,6 +84,11 @@ export const profiles = pgTable(
       'profiles_preferred_language_check',
       inLiterals(t.preferredLanguage, LANGUAGES)
     ),
+    // Enforce exactly-one-owner-per-restaurant at the DB level (a concurrent
+    // double-transfer can't create two owners). Partial: only `owner` rows are unique.
+    uniqueIndex('one_owner_per_restaurant')
+      .on(t.restaurantId)
+      .where(sql`${t.role} = 'owner'`),
   ]
 )
 
@@ -118,9 +132,11 @@ export const prepItems = pgTable(
     name: text('name').notNull(),
     description: text('description'), // optional: storage location, special instructions
     imageUrl: text('image_url'),
-    // par_* is the item's optional DEFAULT amount. Selecting the item on a prep list
-    // prefills the entry's quantity/unit from these (editable). Column names kept as
-    // "par" to avoid a rename migration; the UI labels them "Default amount".
+    // default_* is the item's optional batch amount. Selecting the item on a prep list
+    // prefills the entry's quantity/unit from these (editable).
+    defaultQuantity: numeric('default_quantity'),
+    defaultUnit: text('default_unit'),
+    // par_* is the item's optional par level (target stock to keep on hand) — informational.
     parQuantity: numeric('par_quantity'),
     parUnit: text('par_unit'),
     sourceLanguage: text('source_language', { enum: LANGUAGES })
@@ -143,8 +159,9 @@ export const prepItems = pgTable(
 // ---------------------------------------------------------------------------
 // restaurant_units
 // Custom units a restaurant adds beyond the built-in set (e.g. "lexan", "6-pan").
-// Units are stored as free text on prep_items.par_unit and prep_list_entries.unit;
-// this table only widens the selectable list and the write-time validation allow-list.
+// Units are stored as free text on prep_items.default_unit / par_unit and
+// prep_list_entries.unit; this table only widens the selectable list and the
+// write-time validation allow-list.
 // ---------------------------------------------------------------------------
 export const restaurantUnits = pgTable(
   'restaurant_units',
@@ -196,6 +213,7 @@ export const prepListEntries = pgTable('prep_list_entries', {
   isStarred: boolean('is_starred').notNull().default(false),
   notes: text('notes'), // builder/prep note (instructions, set when building the list)
   cookNote: text('cook_note'), // cook's note from the floor ("only half a case left")
+  cookNoteBy: uuid('cook_note_by').references(() => profiles.id), // who wrote the cook note
   completed: boolean('completed').notNull().default(false),
   completedAt: timestamp('completed_at'),
   completedBy: uuid('completed_by').references(() => profiles.id),

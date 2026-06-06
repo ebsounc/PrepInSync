@@ -1,5 +1,6 @@
 // Units of measure for prep items and list entries. Stored as canonical English
-// strings (e.g. 'qt', 'each') on prep_items.par_unit and prep_list_entries.unit.
+// strings (e.g. 'qt', 'each') on prep_items.default_unit / par_unit and
+// prep_list_entries.unit.
 // Values stay English; Phase 3 translates the labels for display. Restaurants can
 // also add their own units (restaurant_units table) — those are arbitrary strings
 // validated at write time, not part of this built-in set.

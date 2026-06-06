@@ -7,14 +7,15 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
-// Local (not UTC) YYYY-MM-DD so the default date matches the user's calendar day.
-function todayLocal() {
-  const d = new Date()
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-  return local.toISOString().slice(0, 10)
-}
-
-export function NewListForm() {
+// defaultDate + titleHint come from the server (computed in the restaurant timezone),
+// so the rendered values match on server and client — no hydration mismatch.
+export function NewListForm({
+  defaultDate,
+  titleHint,
+}: {
+  defaultDate: string
+  titleHint: string
+}) {
   const [state, action, isPending] = useActionState<ListActionState, FormData>(
     createListAction,
     null
@@ -29,11 +30,11 @@ export function NewListForm() {
       )}
       <Field name="title">
         <FieldLabel>Title</FieldLabel>
-        <Input type="text" name="title" required placeholder="e.g. Friday a.m. prep" autoFocus spellCheck />
+        <Input type="text" name="title" required placeholder={titleHint} autoFocus spellCheck />
       </Field>
       <Field name="date">
         <FieldLabel>Date</FieldLabel>
-        <Input type="date" name="date" required defaultValue={todayLocal()} />
+        <Input type="date" name="date" required defaultValue={defaultDate} />
       </Field>
       <Button type="submit" className="min-h-[52px] text-base" disabled={isPending}>
         {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Create list'}

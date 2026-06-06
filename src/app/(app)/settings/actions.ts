@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { getProfileByUserId } from '@/lib/db/queries/profiles'
+import { getProfileByUserId, transferOwnership } from '@/lib/db/queries/profiles'
 import { updateRestaurant } from '@/lib/db/queries/restaurants'
 import { deleteRestaurantUnit } from '@/lib/db/queries/restaurant-units'
 import { isManagementRole } from '@/lib/auth/roles'
@@ -15,6 +15,7 @@ const VALID_TIMEZONES = new Set(Intl.supportedValuesOf('timeZone'))
 const restaurantSchema = z.object({
   name: z.string().trim().min(1, 'Restaurant name is required').max(100),
   timezone: z.string().refine((v) => VALID_TIMEZONES.has(v), 'Select a valid timezone'),
+  listDefaultDay: z.enum(['today', 'next_day']),
 })
 
 // Management-only guard returning the caller's restaurant context.
@@ -42,16 +43,55 @@ export async function updateRestaurantAction(
   const parsed = restaurantSchema.safeParse({
     name: formData.get('name'),
     timezone: formData.get('timezone'),
+    listDefaultDay: formData.get('listDefaultDay'),
   })
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
   await updateRestaurant(ctx.restaurantId, {
     name: parsed.data.name,
     timezone: parsed.data.timezone,
+    listDefaultDay: parsed.data.listDefaultDay,
   })
   revalidatePath('/settings')
   revalidatePath('/dashboard')
   return { success: true }
+}
+
+// Owner-only guard — ownership transfer is the one action restricted to the owner.
+async function requireOwner() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'You must be signed in.' as const }
+
+  const profile = await getProfileByUserId(user.id)
+  if (!profile?.restaurantId || !profile.isActive || profile.role !== 'owner') {
+    return { error: 'Only the owner can transfer ownership.' as const }
+  }
+  return { profile, restaurantId: profile.restaurantId }
+}
+
+export async function transferOwnershipAction(targetId: string): Promise<{ error?: string }> {
+  const ctx = await requireOwner()
+  if ('error' in ctx) return { error: ctx.error }
+
+  const parsedId = z.string().uuid().safeParse(targetId)
+  if (!parsedId.success) return { error: 'Invalid team member.' }
+  if (parsedId.data === ctx.profile.id) return { error: "You're already the owner." }
+
+  const target = await getProfileByUserId(parsedId.data)
+  if (!target || target.restaurantId !== ctx.restaurantId) {
+    return { error: 'Team member not found.' }
+  }
+  if (!target.isActive) return { error: 'That member is deactivated.' }
+  if (target.role === 'owner') return { error: 'That member is already the owner.' }
+
+  await transferOwnership(ctx.restaurantId, ctx.profile.id, target.id)
+  revalidatePath('/settings')
+  revalidatePath('/team')
+  revalidatePath('/dashboard')
+  return {}
 }
 
 export async function deleteRestaurantUnitAction(id: string): Promise<{ error?: string }> {

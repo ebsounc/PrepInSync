@@ -31,7 +31,7 @@ export default async function TeamPage() {
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
       <h1 className="mb-6 text-2xl font-semibold">Team</h1>
 
-      <div className="mb-8 max-w-sm">
+      <div className="mx-auto mb-8 max-w-sm">
         <Card>
           <CardHeader>
             <CardTitle>Invite a team member</CardTitle>

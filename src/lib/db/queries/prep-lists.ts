@@ -1,5 +1,6 @@
 import 'server-only'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { db, prepLists, prepListEntries, prepItems, profiles } from '@/lib/db'
 
 export type PrepList = typeof prepLists.$inferSelect
@@ -15,6 +16,8 @@ export type PrepListEntryWithMeta = {
   isStarred: boolean
   notes: string | null
   cookNote: string | null
+  cookNoteById: string | null
+  cookNoteByName: string | null
   completed: boolean
   completedAt: Date | null
   completedByName: string | null
@@ -62,6 +65,7 @@ export async function getPrepListEntries(
   listId: string,
   restaurantId: string
 ): Promise<PrepListEntryWithMeta[]> {
+  const cookNoteProfile = alias(profiles, 'cook_note_profile')
   const rows = await db
     .select({
       id: prepListEntries.id,
@@ -72,17 +76,24 @@ export async function getPrepListEntries(
       isStarred: prepListEntries.isStarred,
       notes: prepListEntries.notes,
       cookNote: prepListEntries.cookNote,
+      cookNoteById: prepListEntries.cookNoteBy,
       completed: prepListEntries.completed,
       completedAt: prepListEntries.completedAt,
       completedByFirst: profiles.firstName,
       completedByLast: profiles.lastName,
+      cookNoteByFirst: cookNoteProfile.firstName,
+      cookNoteByLast: cookNoteProfile.lastName,
     })
     .from(prepListEntries)
     .innerJoin(prepLists, eq(prepLists.id, prepListEntries.prepListId))
     .innerJoin(prepItems, eq(prepItems.id, prepListEntries.prepItemId))
     .leftJoin(profiles, eq(profiles.id, prepListEntries.completedBy))
+    .leftJoin(cookNoteProfile, eq(cookNoteProfile.id, prepListEntries.cookNoteBy))
     .where(and(eq(prepListEntries.prepListId, listId), eq(prepLists.restaurantId, restaurantId)))
     .orderBy(desc(prepListEntries.isStarred), asc(prepListEntries.createdAt))
+
+  const fullName = (first: string | null, last: string | null) =>
+    first || last ? `${first ?? ''} ${last ?? ''}`.trim() : null
 
   return rows.map((r) => ({
     id: r.id,
@@ -93,12 +104,11 @@ export async function getPrepListEntries(
     isStarred: r.isStarred,
     notes: r.notes,
     cookNote: r.cookNote,
+    cookNoteById: r.cookNoteById,
+    cookNoteByName: fullName(r.cookNoteByFirst, r.cookNoteByLast),
     completed: r.completed,
     completedAt: r.completedAt,
-    completedByName:
-      r.completedByFirst || r.completedByLast
-        ? `${r.completedByFirst ?? ''} ${r.completedByLast ?? ''}`.trim()
-        : null,
+    completedByName: fullName(r.completedByFirst, r.completedByLast),
   }))
 }
 
@@ -118,6 +128,18 @@ export async function createPrepList(data: {
     })
     .returning()
   return row
+}
+
+// restaurantId scopes the update so one restaurant can't rename another's list.
+export async function updatePrepList(
+  id: string,
+  restaurantId: string,
+  data: { title: string; date: string }
+) {
+  await db
+    .update(prepLists)
+    .set({ title: data.title, date: data.date })
+    .where(and(eq(prepLists.id, id), eq(prepLists.restaurantId, restaurantId)))
 }
 
 // Entries cascade-delete via the FK (onDelete: 'cascade').

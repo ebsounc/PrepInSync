@@ -149,23 +149,29 @@ layers of enforcement:
   write time, even from raw SQL or the service-role key.
 
 Both lists come from the shared `ROLES` / `LANGUAGES` consts in `schema.ts`, so they
-can't drift. Columns stay `text` (not Postgres `ENUM` types) so adding a v2 language
-is a one-line constraint change, consistent with the lazy-translation design in
+can't drift. `restaurants.list_default_day` follows the same pattern (`LIST_DAYS` const +
+CHECK, migration `0003`). Columns stay `text` (not Postgres `ENUM` types) so adding a v2
+language is a one-line constraint change, consistent with the lazy-translation design in
 `CLAUDE.md`.
 
 ---
 
 ## Column gotchas (name ≠ meaning)
 
-- **`prep_items.par_quantity` / `par_unit` are the item's *default amount*.** Selecting
-  an item on a prep list prefills the entry's quantity/unit from these (editable). The
-  `par_` names were kept to avoid a rename migration; the UI labels them "Default amount."
-- **`prep_list_entries.notes` is the builder/prep note** (instructions set when building
-  the list). **`cook_note`** is the separate note a cook leaves from the floor. Don't
-  conflate them — the cook action writes `cook_note`, the builder forms write `notes`.
-- **Units are free text** on `par_unit` and `prep_list_entries.unit`: a built-in value
-  (`lib/units.ts`) *or* a restaurant's custom unit (`restaurant_units.label`). Writes are
-  validated by `isValidUnit()` in `lib/db/queries/restaurant-units.ts`.
+- **`prep_items` has two amount pairs.** `default_quantity` / `default_unit` = the batch
+  amount that **prefills** a list entry when the item is picked (editable). `par_quantity` /
+  `par_unit` = the item's **par level** (target stock to keep on hand) — informational.
+  (In round 2 `par_*` temporarily held the default; migration `0003` moved those values to
+  `default_*` and freed `par_*` for the par level.)
+- **`prep_list_entries.notes` is the builder note** — labeled "Instructions for cook" in the
+  UI, read-only to the cook. **`cook_note`** is the cook's own note from the floor, with
+  **`cook_note_by`** recording who wrote it (so the UI shows "Your note" / "<Name>'s note").
+  The cook action writes `cook_note` + `cook_note_by`; the builder forms write `notes`.
+- **`restaurants.list_default_day`** (`'today'` | `'next_day'`, CHECK-constrained) sets whether
+  a new prep list defaults its date/title to today or the next day.
+- **Units are free text** on `default_unit`, `par_unit`, and `prep_list_entries.unit`: a
+  built-in value (`lib/units.ts`) *or* a restaurant's custom unit (`restaurant_units.label`).
+  Writes are validated by `isValidUnit()` in `lib/db/queries/restaurant-units.ts`.
 
 ## Translation cache model (pointer)
 

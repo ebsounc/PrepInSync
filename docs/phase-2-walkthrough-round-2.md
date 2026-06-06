@@ -49,9 +49,9 @@ cues, then fill in the notes block.
 - [ ] Bottom tab bar reachable with your thumb; "New list" obvious
 
 ```
-👍 Likes:
-👎 Dislikes:
-💡 Ideas:
+👍 Likes:Date looks good. Greeting looks good. 
+👎 Dislikes: So I'm doing a Chef account from my phone, and there is an issue on that page, but not on my desktop computer owner account. 
+💡 Ideas: I think the view all prep list definitely needs rearranging and lots of UI, but so far I don't see any issues. One thing I'm noticing on the phone is that there's this bottom navigation bar just for a browser, and then ours is right above that. There's not much distinction, so I can see there being an issue with misinputs on the navigational bar and you accidentally go back or do something and switch tabs. In the future, it's worth noting that there definitely needs to be some distinction there. If we were to ever make like an app of this, that would not be an issue anymore. 
 ```
 
 ---
@@ -83,9 +83,9 @@ cues, then fill in the notes block.
 - [ ] Description hint is helpful; empty state reads well
 
 ```
-👍 Likes:
-👎 Dislikes:
-💡 Ideas (missing units? other fields you wish it had?):
+👍 Likes: Adding custom units seems to work nicely. Unit list is good, plus adding custom units I feel like works nicely. Clearing a chosen unit looks good. I like that I typed in 0.5 for an amount and it added a zero. Beautiful. Closing the drop down works nicely. The add an item button works upon refresh. I think that's fine. 
+👎 Dislikes: I got this error when adding the plural of a custom unit. Base UI: A component is changing the default value state of an uncontrolled FieldControl after being initialized. To suppress this warning opt to use a controlled FieldControl. Also, the custom units don't have plurals, as of now. Maybe something worth looking into As far as LLM could do that. Drop down menu still needs work, but that's more of a UI thing. Functionality is good. 
+💡 Ideas (missing units? other fields you wish it had?): Maybe a small button to add a par amount, Since many kitchens keep up with it. I don't want to over-complicate the adding an item menu, but I also would like there to be a feature for a par amount. It's worth discussing with me further on the best way to implement that. One idea I have would be to add it after you've already saved an item, but that seems counterintuitive. I also don't want to clutter up the adding an item menu. 
 ```
 
 ---
@@ -106,7 +106,7 @@ pick a date, create it.
 ```
 👍 Likes:
 👎 Dislikes:
-💡 Ideas:
+💡 Ideas: Since we're already using date stuff in a lot of places, could we make the hint change to be the next day's AM prep? Actually, I'm a little bit conflicted, because I think the use cases for today versus tomorrow when you make a list are just going to be very from restaurant to restaurant. A big idea that could amend this issue is if we had a field, maybe when you create your restaurant or in the restaurant settings page, where you default when you make your list. When I worked, they usually did it the night before, but there were some days that they did it the morning of. If we could make a setting where it's like, "When do you typically make your list, or do you make your list for the day or for the next day?" or something like a proper way of wording that Then we could have the default text and default date aligned to the restaurant's preferences. 
 ```
 
 ---
@@ -136,9 +136,9 @@ pick a date, create it.
 - [ ] Progress bar updates; **Done** goes where you expect
 
 ```
-👍 Likes:
-👎 Dislikes:
-💡 Ideas:
+👍 Likes: Item box crazy string is fixed. Refill's good. Start items work well still. Editing/removing seems to work. 
+👎 Dislikes: When you make an item and you make a prep note and add it to the list, it saves fine. And you can edit that prep note through the edit button, but then there's the ability to add a second note, which you edit by clicking on it. We should change the prep note To say instructions for cook E.g., dice find one-fourth inch. So it's a little bit more specific what that note is for. 
+💡 Ideas: We should add a little safety check before adding the same item twice. Let's say I did ranch and I go to add ranch again. A little pop-up says, "Ranch already on the list. Add again or cancel?" Once we focus on UI, having the progress bar update cleanly, like a little slide, would be nice. And also having like A more definitive done screen. I already talked about this last change. Maybe a green progress bar or a green check mark, or maybe even confetti. That might be over the top. We'll come back to that. 
 ```
 
 ---
@@ -160,9 +160,9 @@ pick a date, create it.
 - [ ] Finishing the list feels satisfying (the all-done banner)
 
 ```
-👍 Likes:
-👎 Dislikes:
-💡 Ideas:
+👍 Likes:Permission seems to be working well. Adding or completing items works well. On the phone, it all seems to be a good size. Everything except for UI looks pretty good on this page. And the note pretext is really nice. 
+👎 Dislikes:Just to be more clear on who made what note, I like how the chef's note is called "Prep Note", but maybe we could have it so that on your screen it says "Your note" for the notes that the cooks add. On other people's screens, it would say, for example, "Sam's note" or "Elijah's note" if I made one. This opens up the possibility for multiple people adding nodes, which is pretty rarely ever going to happen, I feel like, but something we should account for. 
+💡 Ideas: UI could make everything more clear: what's completed, what's not, what's starred. We'll get to that eventually. 
 ```
 
 ---
@@ -178,9 +178,9 @@ pick a date, create it.
 - [ ] On the Lists tab, each list shows done/total; a finished list shows a check
 
 ```
-👍 Likes:
-👎 Dislikes:
-💡 Ideas:
+👍 Likes: Stuff looks good on this one. Just what I had in step five about the note names based on who made it, different from the prep note when adding item
+👎 Dislikes: We should have an edit button on the list creation page so you can change the name and date of the list. Also, once you finish with the initial additions to the list, we should do the same thing on the item screen, where it's just an "Add to list" button instead of the entire dropdown menu being open all the time. 
+💡 Ideas: On the homepage, since it's very empty and when it comes up with today's preps it's just a list, maybe we could implement just a preview-ish feature. Maybe either above or below the progress bar we just add the items on that list and then sort of have them checked off as they are in the thing. Nothing you could edit from that, but just a preview of what's done and what isn't. 
 ```
 
 ---
@@ -206,9 +206,9 @@ pick a date, create it.
 - [ ] You can't deactivate yourself or the owner
 
 ```
-👍 Likes:
-👎 Dislikes:
-💡 Ideas:
+👍 Likes: Deactivating works well. Everything from the team page looks good. 
+👎 Dislikes: The team invite thing is not centered on the page. I see why stuff that we will change eventually, but might as well do that while I'm looking At it now.
+💡 Ideas: There definitely needs to be a change role button or just an edit button on the person. This is just an idea, but also a personal settings page might be necessary so you can change your name. Maybe you could enter a birthday. With a custom birthday message on the birthday, that'd be a nice touch. Right now it's a non-important issue, but it's the type of changes that bring it to life. Also, this is where things like translation preferences would live. And language Profile pictures would be cool too if we get around to that. 
 ```
 
 ---
@@ -228,9 +228,9 @@ pick a date, create it.
 - [ ] A non-management user can't reach it
 
 ```
-👍 Likes:
-👎 Dislikes:
-💡 Ideas (what else belongs on a settings page?):
+👍 Likes: Can't reach it from a non-manager page. 
+👎 Dislikes:We could work on the formatting for the time zones. Right now we have underscores In City Names It's correct in the drop-down menu, but when you type it in or when you pick one, it gets a little funky. 
+💡 Ideas (what else belongs on a settings page?): An ability to upload your restaurant's icon would be really cool. I would make it feel more personal. Also, maybe an ability to transfer ownership on this page to another employee. And this is where the preference for when you create lists would also live, such as you create it for tomorrow or for today. 
 ```
 
 ---
@@ -246,16 +246,16 @@ pick a date, create it.
 
 ```
 Biggest 3 things I'd change:
-1.
-2.
-3.
+1. Tweaks to how the list looks on the home page 
+2.Tweaks to the settings and team settings pages, like permission switches and time preferences 
+3. Tweaks in this creation, like the safety checks, the note creation, Editing list. And so on. 
 
-What felt good:
+What felt good: I'm not seeing any obvious bugs right now. Page navigation works great. Roles are working as intended. 
 
 Did the round-1 fixes land the way you wanted? (units/plurals, dropdowns, the item-name
 bug, separate cook notes, deactivation, default-amount prefill):
 
-Anything still missing for a real kitchen:
+Anything still missing for a real kitchen: Just the personalization that I've talked about in many of the other steps. 
 ```
 
 ---

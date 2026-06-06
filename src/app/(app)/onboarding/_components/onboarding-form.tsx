@@ -15,7 +15,7 @@ import {
   SelectGroupLabel,
   SelectItem,
 } from '@/components/ui/select'
-import { TIMEZONE_GROUPS } from '@/lib/auth/timezones'
+import { TIMEZONE_GROUPS, timezoneLabel } from '@/lib/auth/timezones'
 
 export function OnboardingForm() {
   const [state, action, isPending] = useActionState(completeOnboardingAction, null)
@@ -53,7 +53,9 @@ export function OnboardingForm() {
           onValueChange={(value) => { if (value) setTimezone(value) }}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Select your timezone" />
+            <SelectValue placeholder="Select your timezone">
+              {() => (timezone ? timezoneLabel(timezone) : 'Select your timezone')}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {TIMEZONE_GROUPS.map((group) => (

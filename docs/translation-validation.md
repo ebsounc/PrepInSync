@@ -81,6 +81,10 @@ These are the words that will actually appear in prep lists and recipes inside t
 | To taste | Al gusto | **Al gusto** | Standard. |
 | Approximately / about | Aproximadamente / como | **Como** | "Como dos tazas" = "about two cups." |
 
+> Note: restaurants can also add **custom units** (e.g. "lexan", "6-pan"). Those are
+> user-defined free text and get translated at runtime via the same pipeline — they
+> aren't (and can't be) enumerated in this fixed glossary.
+
 ---
 
 ## SECTION 3 — Sample prep list phrases (full sentences, the real test)

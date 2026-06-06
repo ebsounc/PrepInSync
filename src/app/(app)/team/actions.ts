@@ -8,11 +8,13 @@ import {
   getProfileByUserId,
   setCanCreateLists,
   setProfileActive,
+  setProfileRole,
 } from '@/lib/db/queries/profiles'
 import { createInvite, deleteInvite } from '@/lib/db/queries/invites'
 import { getOrigin } from '@/lib/get-origin'
 import {
   isManagementRole,
+  isInvitableRole,
   defaultCanCreateLists,
   INVITABLE_ROLES,
   type ProfileRole,
@@ -135,6 +137,31 @@ export async function setCanCreateListsAction(
     return { error: "You can't change your own list permission." }
   }
   await setCanCreateLists(ctx.target.id, ctx.restaurantId, value)
+  revalidatePath('/team')
+  return {}
+}
+
+export async function setRoleAction(
+  targetId: string,
+  role: string
+): Promise<{ error?: string }> {
+  const ctx = await requireManagerAndTarget(targetId)
+  if ('error' in ctx) return { error: ctx.error }
+
+  // Owner's role is fixed; changing it would be an ownership transfer (out of scope).
+  if (ctx.target.role === 'owner') {
+    return { error: "You can't change the owner's role." }
+  }
+  // Don't let a manager demote themselves and lose team access.
+  if (ctx.target.id === ctx.caller.id) {
+    return { error: "You can't change your own role." }
+  }
+  // isInvitableRole is exactly the assignable set (all roles except owner).
+  if (!isInvitableRole(role)) {
+    return { error: 'Pick a valid role.' }
+  }
+  // Reset list-creation permission to the new role's default on a role change.
+  await setProfileRole(ctx.target.id, ctx.restaurantId, role, defaultCanCreateLists(role))
   revalidatePath('/team')
   return {}
 }

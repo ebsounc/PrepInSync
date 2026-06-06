@@ -53,14 +53,14 @@ The hard part isn't whether the chef finds it useful. It's adoption — see open
 - `can_create_lists` permission flag: true by default for management, false for execution, toggleable per person by management
 
 **Prep workflow**
-- Item database (restaurant inputs their prep items, with an optional **default amount** and a description for storage/special instructions)
+- Item database (restaurant inputs their prep items, with an optional **default amount**, an optional **par level** (target stock), and a description for storage/special instructions)
 - Quantities support decimals (e.g. 1.5 quarts) — stored as `numeric`
 - Units of measure handled correctly (lbs/kg, oz/g, quarts/liters, cases, trays, each), pluralized for display ("2 lbs"). Restaurants can add their own **custom units** (saved for reuse)
-- Management builds the prep list — selects items (quantity/unit prefill from the item's default amount, still editable), sets quantities, optionally stars priority items (starred items float to top), and can attach a **prep note** (instructions)
-- All staff see the full list; tap items to mark complete; a cook can leave their own **cook note** (separate from the prep note)
-- Real-time completion status visible to management
-- Soft-delete for team members (`is_active` flag) — historical completion data is preserved; a deactivated member is locked out of the app entirely
-- Management can edit restaurant info (name, timezone) and manage custom units on a **Settings** page
+- Management builds the prep list — selects items (quantity/unit prefill from the item's default amount, still editable; a confirm guards adding the same item twice), sets quantities, optionally stars priority items (starred items float to top), and can attach **instructions for the cook**. List name/date are editable after creation
+- All staff see the full list; tap items to mark complete; a cook can leave their own **cook note** (separate from the instructions, attributed to whoever wrote it)
+- Real-time completion status visible to management; Home shows a read-only preview of today's lists
+- Soft-delete for team members (`is_active` flag) — historical completion data is preserved; a deactivated member is locked out of the app entirely. Management can change a member's role
+- Management can edit restaurant info (name, timezone, and when lists are typically built) and manage custom units on a **Settings** page
 
 **Recipes (optional per item)**
 - Items can have an attached recipe or not — supports both "experienced staff, no recipes needed" and "newer staff, recipes required" use cases
@@ -75,7 +75,7 @@ The hard part isn't whether the chef finds it useful. It's adoption — see open
 - Language is a **per-user preference**, not fixed by role. Each user (chef or prep cook) picks the language they read/write in.
 - Translation is **bidirectional** (English ↔ Spanish in v1). Content has a source language (whatever it was authored in); each viewer sees it in their preferred language.
 - Most input will be English in practice, but a Spanish-speaking chef can author in Spanish and an English-reading prep cook sees it in English. Not everyone in a kitchen is Spanish-speaking.
-- Translate item names, units, quantities, recipes, and notes.
+- Translate item names, descriptions, units (including restaurant-defined custom units), quantities, recipes, the builder's instructions, and cook notes.
 - **Lazy translation + cache:** content stays in its source language until someone requests the other language. On first request, translate once and store it; future requests read the stored copy. Don't pre-translate everything — only translate what's actually read.
 - Store translations in a flexible translations table keyed by (content, target language), NOT as fixed English/Spanish columns. This keeps adding languages later (v2) clean.
 - When source text is edited, invalidate its cached translations so they regenerate on next request.

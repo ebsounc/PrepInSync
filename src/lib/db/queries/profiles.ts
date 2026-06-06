@@ -41,6 +41,49 @@ export async function setProfileActive(
     .where(and(eq(profiles.id, targetId), eq(profiles.restaurantId, restaurantId)))
 }
 
+// restaurantId scopes the write so management can only change their own roster.
+// canCreateLists is reset to the new role's default so a demotion doesn't silently
+// leave list-building access behind (and a promotion grants it).
+export async function setProfileRole(
+  targetId: string,
+  restaurantId: string,
+  role: ProfileRole,
+  canCreateLists: boolean
+) {
+  await db
+    .update(profiles)
+    .set({ role, canCreateLists })
+    .where(and(eq(profiles.id, targetId), eq(profiles.restaurantId, restaurantId)))
+}
+
+// Atomically hand ownership to another member: the old owner steps down to
+// general_manager, then the target becomes owner. Both writes are scoped to the
+// restaurant. Demotion happens FIRST so the `one_owner_per_restaurant` partial unique
+// index is never momentarily violated; under a concurrent double-transfer the second
+// promotion hits that index and the transaction rolls back.
+export async function transferOwnership(
+  restaurantId: string,
+  fromUserId: string,
+  toUserId: string
+) {
+  await db.transaction(async (tx) => {
+    await tx
+      .update(profiles)
+      .set({ role: 'general_manager', canCreateLists: true })
+      .where(
+        and(
+          eq(profiles.id, fromUserId),
+          eq(profiles.restaurantId, restaurantId),
+          eq(profiles.role, 'owner')
+        )
+      )
+    await tx
+      .update(profiles)
+      .set({ role: 'owner', canCreateLists: true })
+      .where(and(eq(profiles.id, toUserId), eq(profiles.restaurantId, restaurantId)))
+  })
+}
+
 export async function updateProfile(
   userId: string,
   data: { restaurantId: string; role: ProfileRole; canCreateLists: boolean }

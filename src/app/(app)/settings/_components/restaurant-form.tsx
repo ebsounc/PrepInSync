@@ -15,9 +15,17 @@ import {
   SelectGroupLabel,
   SelectItem,
 } from '@/components/ui/select'
-import { TIMEZONE_GROUPS } from '@/lib/auth/timezones'
+import { TIMEZONE_GROUPS, timezoneLabel } from '@/lib/auth/timezones'
 
-export function RestaurantForm({ name, timezone }: { name: string; timezone: string }) {
+export function RestaurantForm({
+  name,
+  timezone,
+  listDefaultDay,
+}: {
+  name: string
+  timezone: string
+  listDefaultDay: 'today' | 'next_day'
+}) {
   const [state, action, isPending] = useActionState<SettingsState, FormData>(
     updateRestaurantAction,
     null
@@ -25,6 +33,7 @@ export function RestaurantForm({ name, timezone }: { name: string; timezone: str
   // Controlled so the field doesn't warn when the page revalidates after save.
   const [nameValue, setNameValue] = useState(name)
   const [tz, setTz] = useState(timezone)
+  const [listDay, setListDay] = useState<string>(listDefaultDay)
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -51,7 +60,10 @@ export function RestaurantForm({ name, timezone }: { name: string; timezone: str
         <label className="text-sm font-medium text-foreground">Timezone</label>
         <SelectField name="timezone" value={tz} onValueChange={(v) => { if (v) setTz(v) }}>
           <SelectTrigger>
-            <SelectValue placeholder="Select your timezone" />
+            {/* Show the friendly label (not the raw IANA value with underscores). */}
+            <SelectValue placeholder="Select your timezone">
+              {() => timezoneLabel(tz)}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {TIMEZONE_GROUPS.map((group) => (
@@ -67,6 +79,24 @@ export function RestaurantForm({ name, timezone }: { name: string; timezone: str
           </SelectContent>
         </SelectField>
         <input type="hidden" name="timezone" value={tz} />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-foreground">We usually build lists for</label>
+        <SelectField name="listDefaultDay" value={listDay} onValueChange={(v) => { if (v) setListDay(v) }}>
+          <SelectTrigger>
+            <SelectValue placeholder="Choose">
+              {() => (listDay === 'next_day' ? 'The next day' : 'Today')}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="next_day">The next day</SelectItem>
+          </SelectContent>
+        </SelectField>
+        <input type="hidden" name="listDefaultDay" value={listDay} />
+        <p className="text-xs text-muted-foreground">
+          Sets the default date and title when you create a new prep list.
+        </p>
       </div>
       <Button type="submit" className="min-h-[48px] text-base" disabled={isPending || !tz}>
         {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save changes'}

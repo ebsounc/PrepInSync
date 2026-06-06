@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { Loader2Icon, PlusIcon, StarIcon } from 'lucide-react'
 import { addEntryAction, type ListActionState } from '../../actions'
 import { addCustomUnitAction } from '../../../_actions/units'
@@ -21,44 +21,23 @@ import { cn } from '@/lib/utils'
 export type BuilderItem = {
   id: string
   name: string
-  parQuantity: string | null
-  parUnit: string | null
+  defaultQuantity: string | null
+  defaultUnit: string | null
 }
 
 export function AddEntryRow({
   listId,
   items,
   customUnits,
+  existingItemIds,
 }: {
   listId: string
   items: BuilderItem[]
   customUnits: string[]
+  existingItemIds: string[]
 }) {
-  const [state, action, isPending] = useActionState<ListActionState, FormData>(addEntryAction, null)
-  const [itemId, setItemId] = useState('')
-  const [quantity, setQuantity] = useState('')
-  const [unit, setUnit] = useState('')
-  const [starred, setStarred] = useState(false)
-  const [notes, setNotes] = useState('')
-
-  useEffect(() => {
-    if (state?.success) {
-      setItemId('')
-      setQuantity('')
-      setUnit('')
-      setStarred(false)
-      setNotes('')
-    }
-  }, [state])
-
-  // Picking an item prefills qty/unit from its default amount (still editable).
-  // Reset first so switching to an item with no default clears the previous values.
-  function handleItemChange(id: string) {
-    setItemId(id)
-    const item = items.find((i) => i.id === id)
-    setQuantity(item?.parQuantity ? formatQuantity(item.parQuantity) : '')
-    setUnit(item?.parUnit ?? '')
-  }
+  // Collapse to a button once the list has entries; open inline when empty.
+  const [expanded, setExpanded] = useState(existingItemIds.length === 0)
 
   if (items.length === 0) {
     return (
@@ -68,10 +47,89 @@ export function AddEntryRow({
     )
   }
 
-  const selectedName = items.find((i) => i.id === itemId)?.name
+  if (!expanded) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-[48px] w-full justify-start text-base"
+        onClick={() => setExpanded(true)}
+      >
+        <PlusIcon /> Add an item
+      </Button>
+    )
+  }
 
   return (
-    <form action={action} className="flex flex-col gap-3 rounded-xl border p-4">
+    <AddEntryForm
+      listId={listId}
+      items={items}
+      customUnits={customUnits}
+      existingItemIds={existingItemIds}
+      onClose={existingItemIds.length > 0 ? () => setExpanded(false) : undefined}
+    />
+  )
+}
+
+function AddEntryForm({
+  listId,
+  items,
+  customUnits,
+  existingItemIds,
+  onClose,
+}: {
+  listId: string
+  items: BuilderItem[]
+  customUnits: string[]
+  existingItemIds: string[]
+  onClose?: () => void
+}) {
+  const [state, action, isPending] = useActionState<ListActionState, FormData>(addEntryAction, null)
+  const formRef = useRef<HTMLFormElement>(null)
+  const [itemId, setItemId] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [unit, setUnit] = useState('')
+  const [starred, setStarred] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [confirmDup, setConfirmDup] = useState(false)
+
+  useEffect(() => {
+    if (state?.success) {
+      setItemId('')
+      setQuantity('')
+      setUnit('')
+      setStarred(false)
+      setNotes('')
+      setConfirmDup(false)
+    }
+  }, [state])
+
+  // Picking an item prefills qty/unit from its default amount (still editable).
+  // Reset first so switching to an item with no default clears the previous values.
+  function handleItemChange(id: string) {
+    setItemId(id)
+    setConfirmDup(false)
+    const item = items.find((i) => i.id === id)
+    setQuantity(item?.defaultQuantity ? formatQuantity(item.defaultQuantity) : '')
+    setUnit(item?.defaultUnit ?? '')
+  }
+
+  const selectedName = items.find((i) => i.id === itemId)?.name
+  const isDuplicate = Boolean(itemId) && existingItemIds.includes(itemId)
+  const canAdd = Boolean(itemId && quantity && unit) && !isPending
+
+  // Gate submission on a confirm when the item is already on the list.
+  function attemptAdd() {
+    if (!canAdd) return
+    if (isDuplicate && !confirmDup) {
+      setConfirmDup(true)
+      return
+    }
+    formRef.current?.requestSubmit()
+  }
+
+  return (
+    <form ref={formRef} action={action} className="flex flex-col gap-3 rounded-xl border p-4">
       <input type="hidden" name="prepListId" value={listId} />
       <input type="hidden" name="prepItemId" value={itemId} />
       <input type="hidden" name="isStarred" value={starred ? 'true' : 'false'} />
@@ -132,7 +190,7 @@ export function AddEntryRow({
         </Button>
       </div>
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">Prep note (optional)</label>
+        <label className="text-sm font-medium text-foreground">Instructions for cook (optional)</label>
         <Textarea
           name="notes"
           value={notes}
@@ -142,19 +200,49 @@ export function AddEntryRow({
           spellCheck
         />
       </div>
-      <Button
-        type="submit"
-        className="min-h-[48px]"
-        disabled={isPending || !itemId || !quantity || !unit}
-      >
-        {isPending ? (
-          <Loader2Icon className="size-4 animate-spin" />
-        ) : (
-          <>
-            <PlusIcon /> Add to list
-          </>
-        )}
-      </Button>
+
+      {confirmDup ? (
+        <div className="flex flex-col gap-2 rounded-lg bg-muted p-3 text-sm">
+          <span>
+            <span className="font-medium">{selectedName}</span> is already on the list. Add it again?
+          </span>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              className="min-h-[48px] flex-1"
+              disabled={isPending}
+              onClick={() => formRef.current?.requestSubmit()}
+            >
+              {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Add again'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[48px]"
+              onClick={() => setConfirmDup(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <Button type="button" className="min-h-[48px] flex-1" disabled={!canAdd} onClick={attemptAdd}>
+            {isPending ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : (
+              <>
+                <PlusIcon /> Add to list
+              </>
+            )}
+          </Button>
+          {onClose && (
+            <Button type="button" variant="outline" className="min-h-[48px]" onClick={onClose}>
+              Close
+            </Button>
+          )}
+        </div>
+      )}
     </form>
   )
 }

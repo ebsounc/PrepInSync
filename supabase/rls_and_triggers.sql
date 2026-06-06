@@ -4,6 +4,12 @@
 -- Apply once via the Supabase dashboard SQL editor (or supabase db push).
 -- This file is tracked in git but never touched by Drizzle.
 -- Drizzle owns table DDL in drizzle/migrations/; this file owns everything else.
+--
+-- NOTE: this is the baseline. RLS for tables added later lives in its own
+-- supabase/add_*.sql file (and is listed in docs/database.md's RLS summary):
+--   - invites           → supabase/add_invites_table.sql
+--   - restaurant_units  → supabase/add_restaurant_units_rls.sql
+-- A fresh setup must apply those too. RLS is required on EVERY table.
 -- =============================================================================
 
 

@@ -25,20 +25,26 @@ export async function getPrepItemById(
   return rows[0] ?? null
 }
 
-export async function createPrepItem(data: {
-  restaurantId: string
+type ItemFields = {
   name: string
   description: string | null
+  defaultQuantity: string | null
+  defaultUnit: string | null
   parQuantity: string | null
   parUnit: string | null
-  createdBy: string
-}): Promise<PrepItem> {
+}
+
+export async function createPrepItem(
+  data: ItemFields & { restaurantId: string; createdBy: string }
+): Promise<PrepItem> {
   const [row] = await db
     .insert(prepItems)
     .values({
       restaurantId: data.restaurantId,
       name: data.name,
       description: data.description,
+      defaultQuantity: data.defaultQuantity,
+      defaultUnit: data.defaultUnit,
       parQuantity: data.parQuantity,
       parUnit: data.parUnit,
       createdBy: data.createdBy,
@@ -48,16 +54,14 @@ export async function createPrepItem(data: {
 }
 
 // restaurantId scopes the update so one restaurant can never touch another's items.
-export async function updatePrepItem(
-  id: string,
-  restaurantId: string,
-  data: { name: string; description: string | null; parQuantity: string | null; parUnit: string | null }
-) {
+export async function updatePrepItem(id: string, restaurantId: string, data: ItemFields) {
   await db
     .update(prepItems)
     .set({
       name: data.name,
       description: data.description,
+      defaultQuantity: data.defaultQuantity,
+      defaultUnit: data.defaultUnit,
       parQuantity: data.parQuantity,
       parUnit: data.parUnit,
       updatedAt: new Date(),

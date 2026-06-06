@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
+import { useActionState, useEffect, useState, useTransition } from 'react'
 import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import {
   createItemAction,
@@ -34,7 +34,10 @@ export function ItemsList({
     <div className="flex flex-col gap-5">
       {canManage &&
         (expanded ? (
-          <AddItemForm customUnits={customUnits} onClose={items.length === 0 ? undefined : () => setExpanded(false)} />
+          <AddItemForm
+            customUnits={customUnits}
+            onClose={items.length === 0 ? undefined : () => setExpanded(false)}
+          />
         ) : (
           <Button
             type="button"
@@ -68,56 +71,140 @@ function ErrorBanner({ message }: { message: string }) {
   )
 }
 
-function AddItemForm({
+// The amount + unit pair (Default amount, or Par level). Inputs are controlled so
+// re-renders (e.g. when adding a custom unit) never trip base-ui's uncontrolled-field warning.
+function AmountFields({
+  label,
+  quantityName,
+  unitName,
+  quantity,
+  onQuantity,
+  unit,
+  onUnit,
+  placeholder,
   customUnits,
-  onClose,
 }: {
+  label: string
+  quantityName: string
+  unitName: string
+  quantity: string
+  onQuantity: (v: string) => void
+  unit: string
+  onUnit: (v: string) => void
+  placeholder: string
   customUnits: string[]
-  onClose?: () => void
 }) {
-  const [state, action, isPending] = useActionState<ItemActionState, FormData>(
-    createItemAction,
-    null
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Field name={quantityName}>
+        <FieldLabel>{label}</FieldLabel>
+        <Input
+          type="text"
+          inputMode="decimal"
+          name={quantityName}
+          value={quantity}
+          onChange={(e) => onQuantity(e.target.value)}
+          placeholder={placeholder}
+        />
+      </Field>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-foreground">Unit</label>
+        <UnitSelect
+          name={unitName}
+          value={unit}
+          onValueChange={onUnit}
+          customUnits={customUnits}
+          clearable
+          onAddUnit={addCustomUnitAction}
+        />
+      </div>
+    </div>
   )
-  const [unit, setUnit] = useState('')
-  const formRef = useRef<HTMLFormElement>(null)
+}
+
+function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?: () => void }) {
+  const [state, action, isPending] = useActionState<ItemActionState, FormData>(createItemAction, null)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [defaultQty, setDefaultQty] = useState('')
+  const [defaultUnit, setDefaultUnit] = useState('')
+  const [showPar, setShowPar] = useState(false)
+  const [parQty, setParQty] = useState('')
+  const [parUnit, setParUnit] = useState('')
 
   useEffect(() => {
     if (state?.success) {
-      formRef.current?.reset()
-      setUnit('')
+      setName('')
+      setDescription('')
+      setDefaultQty('')
+      setDefaultUnit('')
+      setShowPar(false)
+      setParQty('')
+      setParUnit('')
     }
   }, [state])
 
   return (
-    <form ref={formRef} action={action} className="flex flex-col gap-3 rounded-xl border p-4">
+    <form action={action} className="flex flex-col gap-3 rounded-xl border p-4">
       <h2 className="font-medium">Add an item</h2>
       {state?.error && <ErrorBanner message={state.error} />}
       <Field name="name">
         <FieldLabel>Name</FieldLabel>
-        <Input type="text" name="name" required placeholder="Diced onions" spellCheck />
+        <Input
+          type="text"
+          name="name"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Diced onions"
+          spellCheck
+        />
       </Field>
       <Field name="description">
         <FieldLabel>Description (optional)</FieldLabel>
-        <Textarea name="description" placeholder="e.g. stored in the walk-in, dice fine" maxLength={500} spellCheck />
+        <Textarea
+          name="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="e.g. stored in the walk-in, dice fine"
+          maxLength={500}
+          spellCheck
+        />
       </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field name="parQuantity">
-          <FieldLabel>Default amount (optional)</FieldLabel>
-          <Input type="text" inputMode="decimal" name="parQuantity" placeholder="2" />
-        </Field>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Unit</label>
-          <UnitSelect
-            name="parUnit"
-            value={unit}
-            onValueChange={setUnit}
-            customUnits={customUnits}
-            clearable
-            onAddUnit={addCustomUnitAction}
-          />
-        </div>
-      </div>
+      <AmountFields
+        label="Default amount (optional)"
+        quantityName="defaultQuantity"
+        unitName="defaultUnit"
+        quantity={defaultQty}
+        onQuantity={setDefaultQty}
+        unit={defaultUnit}
+        onUnit={setDefaultUnit}
+        placeholder="2"
+        customUnits={customUnits}
+      />
+      {showPar ? (
+        <AmountFields
+          label="Par level (optional)"
+          quantityName="parQuantity"
+          unitName="parUnit"
+          quantity={parQty}
+          onQuantity={setParQty}
+          unit={parUnit}
+          onUnit={setParUnit}
+          placeholder="6"
+          customUnits={customUnits}
+        />
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="min-h-[44px] self-start"
+          onClick={() => setShowPar(true)}
+        >
+          <PlusIcon /> Add par level
+        </Button>
+      )}
       <div className="flex gap-2">
         <Button type="submit" className="min-h-[48px] flex-1 text-base" disabled={isPending}>
           {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Add item'}
@@ -154,9 +241,14 @@ function ItemRow({
         {item.description && (
           <div className="truncate text-sm text-muted-foreground">{item.description}</div>
         )}
+        {item.defaultQuantity && (
+          <div className="text-sm text-muted-foreground">
+            Default: {formatAmount(item.defaultQuantity, item.defaultUnit)}
+          </div>
+        )}
         {item.parQuantity && (
           <div className="text-sm text-muted-foreground">
-            Default: {formatAmount(item.parQuantity, item.parUnit)}
+            Par: {formatAmount(item.parQuantity, item.parUnit)}
           </div>
         )}
       </div>
@@ -215,11 +307,15 @@ function EditItemForm({
   customUnits: string[]
   onDone: () => void
 }) {
-  const [state, action, isPending] = useActionState<ItemActionState, FormData>(
-    updateItemAction,
-    null
-  )
-  const [unit, setUnit] = useState(item.parUnit ?? '')
+  const [state, action, isPending] = useActionState<ItemActionState, FormData>(updateItemAction, null)
+  const num = (v: string | null) => (v ? Number(v).toString() : '')
+  const [name, setName] = useState(item.name)
+  const [description, setDescription] = useState(item.description ?? '')
+  const [defaultQty, setDefaultQty] = useState(num(item.defaultQuantity))
+  const [defaultUnit, setDefaultUnit] = useState(item.defaultUnit ?? '')
+  const [showPar, setShowPar] = useState(Boolean(item.parQuantity))
+  const [parQty, setParQty] = useState(num(item.parQuantity))
+  const [parUnit, setParUnit] = useState(item.parUnit ?? '')
 
   useEffect(() => {
     if (state?.success) onDone()
@@ -231,40 +327,60 @@ function EditItemForm({
       {state?.error && <ErrorBanner message={state.error} />}
       <Field name="name">
         <FieldLabel>Name</FieldLabel>
-        <Input type="text" name="name" required defaultValue={item.name} spellCheck />
+        <Input
+          type="text"
+          name="name"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          spellCheck
+        />
       </Field>
       <Field name="description">
         <FieldLabel>Description (optional)</FieldLabel>
         <Textarea
           name="description"
-          defaultValue={item.description ?? ''}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
           placeholder="e.g. stored in the walk-in, dice fine"
           maxLength={500}
           spellCheck
         />
       </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field name="parQuantity">
-          <FieldLabel>Default amount (optional)</FieldLabel>
-          <Input
-            type="text"
-            inputMode="decimal"
-            name="parQuantity"
-            defaultValue={item.parQuantity ? Number(item.parQuantity).toString() : ''}
-          />
-        </Field>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Unit</label>
-          <UnitSelect
-            name="parUnit"
-            value={unit}
-            onValueChange={setUnit}
-            customUnits={customUnits}
-            clearable
-            onAddUnit={addCustomUnitAction}
-          />
-        </div>
-      </div>
+      <AmountFields
+        label="Default amount (optional)"
+        quantityName="defaultQuantity"
+        unitName="defaultUnit"
+        quantity={defaultQty}
+        onQuantity={setDefaultQty}
+        unit={defaultUnit}
+        onUnit={setDefaultUnit}
+        placeholder="2"
+        customUnits={customUnits}
+      />
+      {showPar ? (
+        <AmountFields
+          label="Par level (optional)"
+          quantityName="parQuantity"
+          unitName="parUnit"
+          quantity={parQty}
+          onQuantity={setParQty}
+          unit={parUnit}
+          onUnit={setParUnit}
+          placeholder="6"
+          customUnits={customUnits}
+        />
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="min-h-[44px] self-start"
+          onClick={() => setShowPar(true)}
+        >
+          <PlusIcon /> Add par level
+        </Button>
+      )}
       <div className="flex gap-2">
         <Button type="submit" className="min-h-[48px] flex-1" disabled={isPending}>
           {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}

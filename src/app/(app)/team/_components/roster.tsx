@@ -2,10 +2,17 @@
 
 import { useState, useTransition } from 'react'
 import { Loader2Icon } from 'lucide-react'
-import { setCanCreateListsAction, setActiveAction } from '../actions'
+import { setCanCreateListsAction, setActiveAction, setRoleAction } from '../actions'
 import type { Profile } from '@/lib/db/queries/profiles'
-import { ROLE_LABELS } from '@/lib/auth/roles'
+import { ROLE_LABELS, INVITABLE_ROLES } from '@/lib/auth/roles'
 import { Button } from '@/components/ui/button'
+import {
+  SelectField,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 export function Roster({
@@ -21,6 +28,39 @@ export function Roster({
         <MemberRow key={m.id} member={m} isSelf={m.id === currentUserId} />
       ))}
     </ul>
+  )
+}
+
+// Inline role editor for a non-owner, non-self member. Assignable roles are
+// INVITABLE_ROLES (everything except owner).
+function RoleSelect({
+  role,
+  disabled,
+  onChange,
+}: {
+  role: Profile['role']
+  disabled: boolean
+  onChange: (role: string) => void
+}) {
+  return (
+    <SelectField
+      value={role}
+      disabled={disabled}
+      onValueChange={(v) => {
+        if (v && v !== role) onChange(v)
+      }}
+    >
+      <SelectTrigger className="mt-0.5 h-9 min-h-9 w-auto text-sm">
+        <SelectValue>{() => ROLE_LABELS[role]}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {INVITABLE_ROLES.map((r) => (
+          <SelectItem key={r} value={r}>
+            {ROLE_LABELS[r]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </SelectField>
   )
 }
 
@@ -51,7 +91,15 @@ function MemberRow({ member, isSelf }: { member: Profile; isSelf: boolean }) {
             {member.firstName} {member.lastName}
             {isSelf && <span className="font-normal text-muted-foreground"> (you)</span>}
           </div>
-          <div className="text-sm text-muted-foreground">{ROLE_LABELS[member.role]}</div>
+          {isOwner || isSelf ? (
+            <div className="text-sm text-muted-foreground">{ROLE_LABELS[member.role]}</div>
+          ) : (
+            <RoleSelect
+              role={member.role}
+              disabled={pending}
+              onChange={(r) => run(() => setRoleAction(member.id, r))}
+            />
+          )}
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
           {!member.isActive && <Badge>Inactive</Badge>}

@@ -6,10 +6,10 @@ import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getPrepListById, getPrepListEntries } from '@/lib/db/queries/prep-lists'
 import { getPrepItemsByRestaurant } from '@/lib/db/queries/prep-items'
 import { getRestaurantUnits } from '@/lib/db/queries/restaurant-units'
-import { formatListDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { AddEntryRow } from './_components/add-entry-row'
 import { EntryRow } from './_components/entry-row'
+import { EditListForm } from './_components/edit-list-form'
 import { DeleteListButton } from './_components/delete-list-button'
 
 export default async function PrepListPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,10 +41,10 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
       <header className="mb-4">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold">{list.title}</h1>
-            <p className="text-sm text-muted-foreground">{formatListDate(list.date)}</p>
-          </div>
+          <EditListForm
+            list={{ id: list.id, title: list.title, date: list.date }}
+            canManage={canManage}
+          />
           {canManage && <DeleteListButton listId={list.id} />}
         </div>
         <div className="mt-3 flex items-center gap-2">
@@ -69,10 +69,11 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
             items={items.map((i) => ({
               id: i.id,
               name: i.name,
-              parQuantity: i.parQuantity,
-              parUnit: i.parUnit,
+              defaultQuantity: i.defaultQuantity,
+              defaultUnit: i.defaultUnit,
             }))}
             customUnits={customUnits}
+            existingItemIds={entries.map((e) => e.prepItemId)}
           />
         </div>
       )}
@@ -84,7 +85,13 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
       ) : (
         <ul className="flex flex-col gap-2">
           {entries.map((entry) => (
-            <EntryRow key={entry.id} entry={entry} canManage={canManage} customUnits={customUnits} />
+            <EntryRow
+              key={entry.id}
+              entry={entry}
+              canManage={canManage}
+              customUnits={customUnits}
+              currentUserId={profile.id}
+            />
           ))}
         </ul>
       )}

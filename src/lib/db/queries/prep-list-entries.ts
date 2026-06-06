@@ -84,7 +84,11 @@ export async function toggleEntryCompletion(id: string, completed: boolean, user
     .where(eq(prepListEntries.id, id))
 }
 
-// The cook's own note (separate from the builder's prep note in `notes`).
-export async function setEntryCookNote(id: string, note: string | null) {
-  await db.update(prepListEntries).set({ cookNote: note }).where(eq(prepListEntries.id, id))
+// The cook's own note (separate from the builder's prep note in `notes`). Records
+// who wrote it so the UI can attribute it; clears the author when the note is removed.
+export async function setEntryCookNote(id: string, note: string | null, userId: string) {
+  await db
+    .update(prepListEntries)
+    .set({ cookNote: note, cookNoteBy: note ? userId : null })
+    .where(eq(prepListEntries.id, id))
 }

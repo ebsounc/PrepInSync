@@ -5,7 +5,12 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId, type Profile } from '@/lib/db/queries/profiles'
-import { createPrepList, getPrepListById, deletePrepList } from '@/lib/db/queries/prep-lists'
+import {
+  createPrepList,
+  getPrepListById,
+  updatePrepList,
+  deletePrepList,
+} from '@/lib/db/queries/prep-lists'
 import { getPrepItemById } from '@/lib/db/queries/prep-items'
 import {
   addEntry,
@@ -77,6 +82,30 @@ export async function createListAction(
   })
   revalidatePath('/prep-lists')
   redirect(`/prep-lists/${list.id}`)
+}
+
+export async function updateListAction(
+  _prev: ListActionState,
+  formData: FormData
+): Promise<ListActionState> {
+  const ctx = await requireBuilder()
+  if ('error' in ctx) return { error: ctx.error }
+
+  const listId = z.string().uuid().safeParse(formData.get('listId'))
+  if (!listId.success) return { error: 'Invalid list.' }
+  const list = await getPrepListById(listId.data, ctx.restaurantId)
+  if (!list) return { error: 'List not found.' }
+
+  const parsed = createListSchema.safeParse({
+    title: formData.get('title'),
+    date: formData.get('date'),
+  })
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  await updatePrepList(list.id, ctx.restaurantId, { title: parsed.data.title, date: parsed.data.date })
+  revalidatePath(`/prep-lists/${list.id}`)
+  revalidatePath('/prep-lists')
+  return { success: true }
 }
 
 const entrySchema = z.object({
@@ -227,7 +256,7 @@ export async function saveCookNoteAction(entryId: string, note: string): Promise
   const entry = await accessibleEntry(entryId, ctx.restaurantId)
   if (!entry) return { error: 'Entry not found.' }
   const trimmed = note.trim().slice(0, 500)
-  await setEntryCookNote(entry.id, trimmed.length ? trimmed : null)
+  await setEntryCookNote(entry.id, trimmed.length ? trimmed : null, ctx.profile.id)
   revalidatePath(`/prep-lists/${entry.prepListId}`)
   return {}
 }

@@ -1,9 +1,16 @@
 import Link from 'next/link'
-import { CheckCircle2Icon } from 'lucide-react'
-import type { PrepListWithProgress } from '@/lib/db/queries/prep-lists'
+import { CheckCircle2Icon, CircleIcon, StarIcon } from 'lucide-react'
+import type { PrepListWithProgress, PrepListEntryWithMeta } from '@/lib/db/queries/prep-lists'
 import { formatListDate } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
-export function PrepListCard({ list }: { list: PrepListWithProgress }) {
+export function PrepListCard({
+  list,
+  entries,
+}: {
+  list: PrepListWithProgress
+  entries?: PrepListEntryWithMeta[]
+}) {
   const pct = list.total > 0 ? Math.round((list.done / list.total) * 100) : 0
   const complete = list.total > 0 && list.done === list.total
   return (
@@ -26,6 +33,25 @@ export function PrepListCard({ list }: { list: PrepListWithProgress }) {
           {list.done}/{list.total}
         </span>
       </div>
+
+      {/* Read-only preview of the items and what's done so far. */}
+      {entries && entries.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1 border-t pt-2">
+          {entries.map((e) => (
+            <li key={e.id} className="flex items-center gap-2 text-sm">
+              {e.completed ? (
+                <CheckCircle2Icon className="size-4 shrink-0 text-primary" />
+              ) : (
+                <CircleIcon className="size-4 shrink-0 text-muted-foreground" />
+              )}
+              {e.isStarred && <StarIcon className="size-3 shrink-0 fill-current text-amber-500" />}
+              <span className={cn('truncate', e.completed && 'text-muted-foreground line-through')}>
+                {e.itemName}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </Link>
   )
 }

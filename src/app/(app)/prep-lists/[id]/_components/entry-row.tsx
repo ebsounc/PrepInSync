@@ -31,26 +31,37 @@ export function EntryRow({
   entry,
   canManage,
   customUnits,
+  currentUserId,
 }: {
   entry: PrepListEntryWithMeta
   canManage: boolean
   customUnits: string[]
+  currentUserId: string
 }) {
   const [editing, setEditing] = useState(false)
 
   if (editing) {
     return <EditEntryForm entry={entry} customUnits={customUnits} onDone={() => setEditing(false)} />
   }
-  return <DisplayEntry entry={entry} canManage={canManage} onEdit={() => setEditing(true)} />
+  return (
+    <DisplayEntry
+      entry={entry}
+      canManage={canManage}
+      currentUserId={currentUserId}
+      onEdit={() => setEditing(true)}
+    />
+  )
 }
 
 function DisplayEntry({
   entry,
   canManage,
+  currentUserId,
   onEdit,
 }: {
   entry: PrepListEntryWithMeta
   canManage: boolean
+  currentUserId: string
   onEdit: () => void
 }) {
   const [togglePending, startToggle] = useTransition()
@@ -101,14 +112,14 @@ function DisplayEntry({
         <p className="px-3 pb-1 text-xs text-muted-foreground">Done by {entry.completedByName}</p>
       )}
 
-      {/* Prep note: the builder's instructions, read-only here (edited via Edit). */}
+      {/* Instructions: the builder's note, read-only here (edited via Edit). */}
       {entry.notes && (
         <p className="px-3 pb-1 text-sm">
-          <span className="text-muted-foreground">Prep note:</span> {entry.notes}
+          <span className="text-muted-foreground">Instructions:</span> {entry.notes}
         </p>
       )}
 
-      <CookNoteSection entry={entry} />
+      <CookNoteSection entry={entry} currentUserId={currentUserId} />
 
       {canManage && (
         <div className="flex gap-1 border-t px-2 py-1">
@@ -163,11 +174,25 @@ function RemoveEntryButton({ id }: { id: string }) {
 }
 
 // The cook's own note — editable by anyone working the list, separate from the
-// builder's prep note above.
-function CookNoteSection({ entry }: { entry: PrepListEntryWithMeta }) {
+// builder's instructions above. Attributed to whoever last wrote it.
+function CookNoteSection({
+  entry,
+  currentUserId,
+}: {
+  entry: PrepListEntryWithMeta
+  currentUserId: string
+}) {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState(entry.cookNote ?? '')
   const [pending, start] = useTransition()
+
+  // "Your note" to the author; "<Name>'s note" to everyone else.
+  const noteLabel =
+    entry.cookNoteById === currentUserId
+      ? 'Your note'
+      : entry.cookNoteByName
+        ? `${entry.cookNoteByName}'s note`
+        : 'Note'
 
   if (!open) {
     return (
@@ -181,7 +206,7 @@ function CookNoteSection({ entry }: { entry: PrepListEntryWithMeta }) {
             }}
             className="text-left text-sm underline-offset-2 hover:underline"
           >
-            <span className="text-muted-foreground">Note:</span> {entry.cookNote}
+            <span className="text-muted-foreground">{noteLabel}:</span> {entry.cookNote}
           </button>
         ) : (
           <Button
@@ -299,7 +324,7 @@ function EditEntryForm({
           </Button>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Prep note (optional)</label>
+          <label className="text-sm font-medium text-foreground">Instructions for cook (optional)</label>
           <Textarea
             name="notes"
             defaultValue={entry.notes ?? ''}

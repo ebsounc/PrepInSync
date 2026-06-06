@@ -11,11 +11,11 @@ export async function getRestaurantById(id: string): Promise<Restaurant | null> 
 
 export async function updateRestaurant(
   id: string,
-  data: { name: string; timezone: string }
+  data: { name: string; timezone: string; listDefaultDay: 'today' | 'next_day' }
 ) {
   await db
     .update(restaurants)
-    .set({ name: data.name, timezone: data.timezone })
+    .set({ name: data.name, timezone: data.timezone, listDefaultDay: data.listDefaultDay })
     .where(eq(restaurants.id, id))
 }
 

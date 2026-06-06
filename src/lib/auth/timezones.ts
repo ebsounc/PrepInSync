@@ -95,3 +95,13 @@ export const TIMEZONE_GROUPS: TimezoneGroup[] = [
 export const ALL_TIMEZONES: string[] = TIMEZONE_GROUPS.flatMap((g) =>
   g.zones.map((z) => z.value)
 )
+
+const TIMEZONE_LABELS = new Map(
+  TIMEZONE_GROUPS.flatMap((g) => g.zones.map((z) => [z.value, z.label] as const))
+)
+
+// Friendly label for a timezone value (e.g. "Eastern Time — New York"); falls back to
+// the IANA name with underscores swapped for spaces so the trigger never shows "New_York".
+export function timezoneLabel(value: string): string {
+  return TIMEZONE_LABELS.get(value) ?? value.replace(/_/g, ' ')
+}

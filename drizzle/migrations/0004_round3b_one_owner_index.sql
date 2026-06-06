@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "one_owner_per_restaurant" ON "profiles" USING btree ("restaurant_id") WHERE "profiles"."role" = 'owner';

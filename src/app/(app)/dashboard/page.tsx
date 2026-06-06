@@ -4,7 +4,7 @@ import { ClipboardListIcon, PlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getRestaurantById } from '@/lib/db/queries/restaurants'
-import { getPrepListsByRestaurant } from '@/lib/db/queries/prep-lists'
+import { getPrepListsByRestaurant, getPrepListEntries } from '@/lib/db/queries/prep-lists'
 import { formatListDate, getGreeting } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { PrepListCard } from '../_components/prep-list-card'
@@ -27,6 +27,13 @@ export default async function DashboardPage() {
 
   const lists = await getPrepListsByRestaurant(profile.restaurantId)
   const todays = lists.filter((l) => l.date === today)
+  // Fetch entries for today's lists so the card can show a read-only preview checklist.
+  const todaysWithEntries = await Promise.all(
+    todays.map(async (list) => ({
+      list,
+      entries: await getPrepListEntries(list.id, profile.restaurantId!),
+    }))
+  )
 
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
@@ -57,9 +64,9 @@ export default async function DashboardPage() {
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {todays.map((list) => (
+          {todaysWithEntries.map(({ list, entries }) => (
             <li key={list.id}>
-              <PrepListCard list={list} />
+              <PrepListCard list={list} entries={entries} />
             </li>
           ))}
         </ul>

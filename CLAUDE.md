@@ -29,7 +29,7 @@ Read these before working:
 ## Translation rules
 - Language is a **per-user preference**, not tied to role. Each user picks the language they read/write in. Roles govern permissions/workflow, not language.
 - Translation is **bidirectional** (English ↔ Spanish in v1). Content has a source language (whatever it was authored in); each viewer sees it in their preferred language. Input is usually English but not always — a Spanish-speaking chef can author in Spanish.
-- Translate item names, units, quantities, recipes, and notes.
+- Translate item names, descriptions, units, quantities, recipes, and notes. "Units" includes restaurant-defined custom units (translated at runtime — they can't live in the fixed glossary). "Notes" means both the builder's instructions and the cook's note.
 - **Lazy translation + cache:** content stays in its source language until someone requests the other language. On first request, translate once and store it; future requests read the cached copy. Do NOT pre-translate everything — only translate what's actually read.
 - **Store translations in a flexible table** keyed by (content reference, target language), NOT as fixed English/Spanish columns. This keeps adding languages later (v2) clean — no schema change needed.
 - **Invalidate on edit:** when source text changes, delete its cached translations so they regenerate on next request.
