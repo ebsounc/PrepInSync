@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { CheckCircle2Icon, CircleIcon, StarIcon } from 'lucide-react'
-import type { PrepListWithProgress, PrepListEntryWithMeta } from '@/lib/db/queries/prep-lists'
+import type { PrepListDisplay, PrepListEntryDisplay } from '@/lib/translation/apply'
 import { formatListDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -8,8 +8,8 @@ export function PrepListCard({
   list,
   entries,
 }: {
-  list: PrepListWithProgress
-  entries?: PrepListEntryWithMeta[]
+  list: PrepListDisplay
+  entries?: PrepListEntryDisplay[]
 }) {
   const pct = list.total > 0 ? Math.round((list.done / list.total) * 100) : 0
   const complete = list.total > 0 && list.done === list.total
@@ -21,7 +21,7 @@ export function PrepListCard({
       <div className="flex items-baseline justify-between gap-3">
         <span className="flex min-w-0 items-center gap-1.5 font-medium">
           {complete && <CheckCircle2Icon className="size-4 shrink-0 text-primary" />}
-          <span className="truncate">{list.title}</span>
+          <span className="truncate">{list.titleDisplay}</span>
         </span>
         <span className="shrink-0 text-sm text-muted-foreground">{formatListDate(list.date)}</span>
       </div>
@@ -46,7 +46,7 @@ export function PrepListCard({
               )}
               {e.isStarred && <StarIcon className="size-3 shrink-0 fill-current text-amber-500" />}
               <span className={cn('truncate', e.completed && 'text-muted-foreground line-through')}>
-                {e.itemName}
+                {e.itemNameDisplay}
               </span>
             </li>
           ))}

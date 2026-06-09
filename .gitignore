@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Playwright MCP run artifacts (snapshots/screenshots from local QA)
+.playwright-mcp/

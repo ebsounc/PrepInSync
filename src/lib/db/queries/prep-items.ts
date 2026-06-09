@@ -35,7 +35,11 @@ type ItemFields = {
 }
 
 export async function createPrepItem(
-  data: ItemFields & { restaurantId: string; createdBy: string }
+  data: ItemFields & {
+    restaurantId: string
+    createdBy: string
+    sourceLanguage: 'en' | 'es'
+  }
 ): Promise<PrepItem> {
   const [row] = await db
     .insert(prepItems)
@@ -47,6 +51,9 @@ export async function createPrepItem(
       defaultUnit: data.defaultUnit,
       parQuantity: data.parQuantity,
       parUnit: data.parUnit,
+      // The language the item was authored in — drives which direction it
+      // translates. Left untouched on update so edits don't flip the source.
+      sourceLanguage: data.sourceLanguage,
       createdBy: data.createdBy,
     })
     .returning()
@@ -54,7 +61,12 @@ export async function createPrepItem(
 }
 
 // restaurantId scopes the update so one restaurant can never touch another's items.
-export async function updatePrepItem(id: string, restaurantId: string, data: ItemFields) {
+// sourceLanguage is re-stamped to the editor's language — the text is theirs now.
+export async function updatePrepItem(
+  id: string,
+  restaurantId: string,
+  data: ItemFields & { sourceLanguage: 'en' | 'es' }
+) {
   await db
     .update(prepItems)
     .set({
@@ -64,6 +76,7 @@ export async function updatePrepItem(id: string, restaurantId: string, data: Ite
       defaultUnit: data.defaultUnit,
       parQuantity: data.parQuantity,
       parUnit: data.parUnit,
+      sourceLanguage: data.sourceLanguage,
       updatedAt: new Date(),
     })
     .where(and(eq(prepItems.id, id), eq(prepItems.restaurantId, restaurantId)))

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { RestaurantForm } from './_components/restaurant-form'
 import { UnitsManager } from './_components/units-manager'
 import { TransferOwnership } from './_components/transfer-ownership'
+import { LanguageForm } from './_components/language-form'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -19,20 +20,17 @@ export default async function SettingsPage() {
   const profile = await getProfileByUserId(user.id)
   if (!profile?.restaurantId) redirect('/onboarding')
 
-  if (!isManagementRole(profile.role)) {
-    return (
-      <div className="p-6">
-        <p className="text-muted-foreground">You don&apos;t have permission to manage settings.</p>
-      </div>
-    )
-  }
-
+  // Language is a per-user setting — shown to everyone. The rest of the page is
+  // management-only.
+  const isManagement = isManagementRole(profile.role)
   const isOwner = profile.role === 'owner'
-  const [restaurant, units, members] = await Promise.all([
-    getRestaurantById(profile.restaurantId),
-    getRestaurantUnits(profile.restaurantId),
-    isOwner ? getProfilesByRestaurant(profile.restaurantId) : Promise.resolve([]),
-  ])
+  const [restaurant, units, members] = isManagement
+    ? await Promise.all([
+        getRestaurantById(profile.restaurantId),
+        getRestaurantUnits(profile.restaurantId),
+        isOwner ? getProfilesByRestaurant(profile.restaurantId) : Promise.resolve([]),
+      ])
+    : [null, [], []]
   // Eligible new owners: active members other than the current owner.
   const transferTargets = members
     .filter((m) => m.id !== profile.id && m.isActive)
@@ -44,44 +42,58 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Restaurant</CardTitle>
-          <CardDescription>Update your restaurant&apos;s name and timezone.</CardDescription>
+          <CardTitle>Language</CardTitle>
+          <CardDescription>The language you read and write prep lists in.</CardDescription>
         </CardHeader>
         <CardContent>
-          {restaurant && (
-            <RestaurantForm
-              name={restaurant.name}
-              timezone={restaurant.timezone}
-              listDefaultDay={restaurant.listDefaultDay}
-            />
+          <LanguageForm current={profile.preferredLanguage} />
+        </CardContent>
+      </Card>
+
+      {isManagement && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Restaurant</CardTitle>
+              <CardDescription>Update your restaurant&apos;s name and timezone.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {restaurant && (
+                <RestaurantForm
+                  name={restaurant.name}
+                  timezone={restaurant.timezone}
+                  listDefaultDay={restaurant.listDefaultDay}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Custom units</CardTitle>
+              <CardDescription>
+                Units your restaurant added. Create new ones from the item or list forms.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UnitsManager units={units.map((u) => ({ id: u.id, label: u.label }))} />
+            </CardContent>
+          </Card>
+
+          {isOwner && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Transfer ownership</CardTitle>
+                <CardDescription>
+                  Hand the owner role to another member. You&apos;ll become a General Manager.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TransferOwnership members={transferTargets} />
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Custom units</CardTitle>
-          <CardDescription>
-            Units your restaurant added. Create new ones from the item or list forms.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <UnitsManager units={units.map((u) => ({ id: u.id, label: u.label }))} />
-        </CardContent>
-      </Card>
-
-      {isOwner && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Transfer ownership</CardTitle>
-            <CardDescription>
-              Hand the owner role to another member. You&apos;ll become a General Manager.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TransferOwnership members={transferTargets} />
-          </CardContent>
-        </Card>
+        </>
       )}
     </div>
   )

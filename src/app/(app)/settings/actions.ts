@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { getProfileByUserId, transferOwnership } from '@/lib/db/queries/profiles'
+import {
+  getProfileByUserId,
+  transferOwnership,
+  setPreferredLanguage,
+} from '@/lib/db/queries/profiles'
 import { updateRestaurant } from '@/lib/db/queries/restaurants'
 import { deleteRestaurantUnit } from '@/lib/db/queries/restaurant-units'
 import { isManagementRole } from '@/lib/auth/roles'
@@ -54,6 +58,32 @@ export async function updateRestaurantAction(
   })
   revalidatePath('/settings')
   revalidatePath('/dashboard')
+  return { success: true }
+}
+
+// Language is a per-user preference, available to every active member (cooks
+// included) — NOT gated on management. Revalidates the whole app shell so all
+// server-rendered content re-renders in the new language.
+export async function updateLanguageAction(
+  _prev: SettingsState,
+  formData: FormData
+): Promise<SettingsState> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'You must be signed in.' }
+
+  const profile = await getProfileByUserId(user.id)
+  if (!profile?.restaurantId || !profile.isActive) {
+    return { error: 'You do not have access.' }
+  }
+
+  const parsed = z.enum(['en', 'es']).safeParse(formData.get('language'))
+  if (!parsed.success) return { error: 'Pick a valid language.' }
+
+  await setPreferredLanguage(user.id, parsed.data)
+  revalidatePath('/', 'layout')
   return { success: true }
 }
 

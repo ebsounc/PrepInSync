@@ -6,11 +6,18 @@ import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getPrepListById, getPrepListEntries } from '@/lib/db/queries/prep-lists'
 import { getPrepItemsByRestaurant } from '@/lib/db/queries/prep-items'
 import { getRestaurantUnits } from '@/lib/db/queries/restaurant-units'
+import {
+  translatePrepItems,
+  translatePrepListEntries,
+  translateListTitle,
+  getCustomUnitLabelMap,
+} from '@/lib/translation/apply'
 import { Button } from '@/components/ui/button'
 import { AddEntryRow } from './_components/add-entry-row'
 import { EntryRow } from './_components/entry-row'
 import { EditListForm } from './_components/edit-list-form'
 import { DeleteListButton } from './_components/delete-list-button'
+import { TranslationCorrections, type Correctable } from '@/components/translation-corrections'
 
 export default async function PrepListPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -27,12 +34,67 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
   if (!list) notFound()
 
   const canManage = profile.canCreateLists
-  const [entries, items, units] = await Promise.all([
+  const lang = profile.preferredLanguage
+  const [rawEntries, rawItems, units] = await Promise.all([
     getPrepListEntries(list.id, profile.restaurantId),
     canManage ? getPrepItemsByRestaurant(profile.restaurantId) : Promise.resolve([]),
     getRestaurantUnits(profile.restaurantId),
   ])
+  const [entries, items, customUnitLabels, titleDisplay] = await Promise.all([
+    translatePrepListEntries(rawEntries, profile.restaurantId, lang),
+    translatePrepItems(rawItems, profile.restaurantId, lang),
+    getCustomUnitLabelMap(profile.restaurantId, lang),
+    translateListTitle(list, profile.restaurantId, lang),
+  ])
   const customUnits = units.map((u) => u.label)
+
+  // Translated fields the viewer could correct (item name shares the items-page key).
+  // Dedupe by key — the same item can appear on multiple entries.
+  const corrections: Correctable[] = []
+  const seen = new Set<string>()
+  const add = (c: Correctable) => {
+    const k = `${c.entityType}:${c.entityId}:${c.field}`
+    if (!seen.has(k)) {
+      seen.add(k)
+      corrections.push(c)
+    }
+  }
+  for (const e of entries) {
+    if (e.itemSourceLanguage !== lang) {
+      add({
+        entityType: 'prep_item',
+        entityId: e.prepItemId,
+        field: 'name',
+        label: 'Item',
+        sourceText: e.itemName,
+        sourceLanguage: e.itemSourceLanguage,
+        currentTranslation: e.itemNameDisplay,
+      })
+    }
+    if (e.notes && e.notesDisplay && e.notesSourceLanguage !== lang) {
+      add({
+        entityType: 'prep_list_entry',
+        entityId: e.id,
+        field: 'notes',
+        label: 'Instructions',
+        sourceText: e.notes,
+        sourceLanguage: e.notesSourceLanguage,
+        currentTranslation: e.notesDisplay,
+      })
+    }
+    if (e.cookNote && e.cookNoteDisplay && e.cookNoteSourceLanguage !== lang) {
+      add({
+        entityType: 'prep_list_entry',
+        entityId: e.id,
+        field: 'cook_note',
+        label: 'Note',
+        sourceText: e.cookNote,
+        sourceLanguage: e.cookNoteSourceLanguage,
+        currentTranslation: e.cookNoteDisplay,
+      })
+    }
+  }
+
   const done = entries.filter((e) => e.completed).length
   const pct = entries.length > 0 ? Math.round((done / entries.length) * 100) : 0
   const allDone = entries.length > 0 && done === entries.length
@@ -43,6 +105,7 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
         <div className="flex items-start justify-between gap-2">
           <EditListForm
             list={{ id: list.id, title: list.title, date: list.date }}
+            titleDisplay={titleDisplay}
             canManage={canManage}
           />
           {canManage && <DeleteListButton listId={list.id} />}
@@ -68,7 +131,7 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
             listId={list.id}
             items={items.map((i) => ({
               id: i.id,
-              name: i.name,
+              name: i.nameDisplay,
               defaultQuantity: i.defaultQuantity,
               defaultUnit: i.defaultUnit,
             }))}
@@ -90,10 +153,18 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
               entry={entry}
               canManage={canManage}
               customUnits={customUnits}
+              customUnitLabels={customUnitLabels}
+              lang={lang}
               currentUserId={profile.id}
             />
           ))}
         </ul>
+      )}
+
+      {corrections.length > 0 && (
+        <div className="mt-4">
+          <TranslationCorrections items={corrections} targetLanguage={lang} />
+        </div>
       )}
 
       <div className="mt-6">

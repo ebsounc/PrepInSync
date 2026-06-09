@@ -105,20 +105,21 @@ RLS is **enabled on all 10 tables**. Policies as currently deployed:
 | `recipes` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
 | `glossary_overrides` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
 | `invites` | users read own restaurant invites | SELECT | `restaurant_id` = caller's restaurant (writes are server-side) |
-| `translations` | authenticated users access translations | ALL | `USING (true)` for `authenticated` ⚠️ **see gap below** |
+| `translations` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
 
 Source: [`supabase/rls_and_triggers.sql`](../supabase/rls_and_triggers.sql),
 [`supabase/add_invites_table.sql`](../supabase/add_invites_table.sql), and
 [`supabase/add_restaurant_units_rls.sql`](../supabase/add_restaurant_units_rls.sql).
 
-### ⚠️ Known gap — tighten before Phase 3
+### Translation isolation (Phase 3)
 
-`translations` RLS is `USING (true)` for any authenticated user — it does **not**
-enforce restaurant isolation. The original reasoning (it would require
-denormalizing `restaurant_id` onto the table) is in the SQL comment. Translations
-are read by `entity_id`, and the source entities are already RLS-protected at write
-time, but a user-scoped read of `translations` directly is not isolated. **Must be
-tightened before the Phase 3 translation work makes this table user-readable.**
+`translations` carries a denormalized `restaurant_id` (migration `0005`), set at
+write time by the cache layer, and its RLS keys off it like every other
+tenant-scoped table — the policy lives inline in `rls_and_triggers.sql`. This
+replaced the original `USING (true)` policy, which did not enforce restaurant
+isolation. `restaurant_id` is part of the unique key
+`(restaurant_id, entity_type, entity_id, field, target_language)` as of migration
+`0006`, so an upsert conflict can never re-home a cached row to another tenant.
 
 ---
 

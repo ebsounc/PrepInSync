@@ -10,9 +10,13 @@ import { Button } from '@/components/ui/button'
 
 export function EditListForm({
   list,
+  titleDisplay,
   canManage,
 }: {
   list: { id: string; title: string; date: string }
+  // The viewer's-language title for the read-only header. The edit input keeps
+  // editing the source `list.title` so saving never overwrites it with a translation.
+  titleDisplay: string
   canManage: boolean
 }) {
   const [editing, setEditing] = useState(false)
@@ -35,7 +39,7 @@ export function EditListForm({
     return (
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <h1 className="truncate text-2xl font-semibold">{list.title}</h1>
+          <h1 className="truncate text-2xl font-semibold">{titleDisplay}</h1>
           {canManage && (
             <Button
               type="button"

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 export function SignupForm() {
   const [state, action, isPending] = useActionState(signupAction, null)
   const [showPassword, setShowPassword] = useState(false)
+  const [language, setLanguage] = useState<'en' | 'es'>('en')
   const passwordRef = useRef<HTMLInputElement>(null)
 
   if (state?.success) {
@@ -113,6 +114,31 @@ export function SignupForm() {
         />
         <FieldError />
       </Field>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-foreground">Language</label>
+        <input type="hidden" name="language" value={language} />
+        <div className="grid grid-cols-2 gap-2">
+          {(['en', 'es'] as const).map((code) => (
+            <button
+              key={code}
+              type="button"
+              aria-pressed={language === code}
+              onClick={() => setLanguage(code)}
+              className={
+                'min-h-[48px] rounded-lg border text-base font-medium transition-colors ' +
+                (language === code
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted/50')
+              }
+            >
+              {code === 'en' ? 'English' : 'Español'}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          The language you&apos;ll read and write prep lists in. You can change it later.
+        </p>
+      </div>
       <Button type="submit" className="w-full min-h-[52px] text-base" disabled={isPending}>
         {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Create account'}
       </Button>

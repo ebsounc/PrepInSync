@@ -135,19 +135,15 @@ CREATE POLICY "restaurant isolation"
 
 -- ---------------------------------------------------------------------------
 -- RLS: translations
--- Translations are read by entity_id; isolation is via the source entity's
--- restaurant. We trust that entity_id is always owned by the right restaurant
--- because source entities are already RLS-protected at write time.
--- Using restaurant_id on the translations table directly would require
--- denormalizing it; instead we allow access if the user is authenticated.
--- Revisit if cross-restaurant data leakage becomes a concern.
+-- Lazy translation cache. Isolated by the denormalized restaurant_id column
+-- (added in migration 0005, and part of the unique key as of 0006). Replaced the
+-- original USING (true) policy, which did not enforce tenant isolation.
 -- ---------------------------------------------------------------------------
 ALTER TABLE translations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "authenticated users access translations"
+CREATE POLICY "restaurant isolation"
   ON translations FOR ALL
-  TO authenticated
-  USING (true);
+  USING (restaurant_id = (SELECT restaurant_id FROM profiles WHERE id = auth.uid()));
 
 
 -- ---------------------------------------------------------------------------

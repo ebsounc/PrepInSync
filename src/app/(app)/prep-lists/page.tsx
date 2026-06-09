@@ -4,6 +4,7 @@ import { PlusIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getPrepListsByRestaurant } from '@/lib/db/queries/prep-lists'
+import { translatePrepLists } from '@/lib/translation/apply'
 import { Button } from '@/components/ui/button'
 import { PrepListCard } from '../_components/prep-list-card'
 
@@ -17,7 +18,11 @@ export default async function PrepListsPage() {
   const profile = await getProfileByUserId(user.id)
   if (!profile?.restaurantId) redirect('/onboarding')
 
-  const lists = await getPrepListsByRestaurant(profile.restaurantId)
+  const lists = await translatePrepLists(
+    await getPrepListsByRestaurant(profile.restaurantId),
+    profile.restaurantId,
+    profile.preferredLanguage
+  )
 
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6">

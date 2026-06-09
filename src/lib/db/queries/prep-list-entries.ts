@@ -34,6 +34,7 @@ export async function addEntry(data: {
   unit: string
   isStarred: boolean
   notes: string | null
+  notesSourceLanguage: 'en' | 'es'
 }): Promise<PrepListEntry> {
   const [row] = await db
     .insert(prepListEntries)
@@ -44,14 +45,22 @@ export async function addEntry(data: {
       unit: data.unit,
       isStarred: data.isStarred,
       notes: data.notes,
+      notesSourceLanguage: data.notesSourceLanguage,
     })
     .returning()
   return row
 }
 
+// notesSourceLanguage is re-stamped to the editor's language — the note text is theirs.
 export async function updateEntry(
   id: string,
-  data: { quantity: string; unit: string; isStarred: boolean; notes: string | null }
+  data: {
+    quantity: string
+    unit: string
+    isStarred: boolean
+    notes: string | null
+    notesSourceLanguage: 'en' | 'es'
+  }
 ) {
   await db
     .update(prepListEntries)
@@ -60,6 +69,7 @@ export async function updateEntry(
       unit: data.unit,
       isStarred: data.isStarred,
       notes: data.notes,
+      notesSourceLanguage: data.notesSourceLanguage,
     })
     .where(eq(prepListEntries.id, id))
 }
@@ -86,9 +96,18 @@ export async function toggleEntryCompletion(id: string, completed: boolean, user
 
 // The cook's own note (separate from the builder's prep note in `notes`). Records
 // who wrote it so the UI can attribute it; clears the author when the note is removed.
-export async function setEntryCookNote(id: string, note: string | null, userId: string) {
+export async function setEntryCookNote(
+  id: string,
+  note: string | null,
+  userId: string,
+  sourceLanguage: 'en' | 'es'
+) {
   await db
     .update(prepListEntries)
-    .set({ cookNote: note, cookNoteBy: note ? userId : null })
+    .set({
+      cookNote: note,
+      cookNoteBy: note ? userId : null,
+      cookNoteSourceLanguage: sourceLanguage,
+    })
     .where(eq(prepListEntries.id, id))
 }

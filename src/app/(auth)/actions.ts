@@ -15,6 +15,7 @@ const signupSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
+  language: z.enum(['en', 'es']).default('en'),
 })
 
 type SignupState = { error?: string; success?: boolean } | null
@@ -28,13 +29,14 @@ export async function signupAction(
     lastName: formData.get('lastName'),
     email: formData.get('email'),
     password: formData.get('password'),
+    language: formData.get('language') ?? 'en',
   })
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
 
-  const { firstName, lastName, email, password } = parsed.data
+  const { firstName, lastName, email, password, language } = parsed.data
   const origin = await getOrigin()
   const supabase = await createClient()
 
@@ -42,7 +44,9 @@ export async function signupAction(
     email,
     password,
     options: {
-      data: { first_name: firstName, last_name: lastName, preferred_language: 'en' },
+      // preferred_language flows to the handle_new_user trigger, which seeds the
+      // profile row with it.
+      data: { first_name: firstName, last_name: lastName, preferred_language: language },
       emailRedirectTo: `${origin}/auth/confirm`,
     },
   })

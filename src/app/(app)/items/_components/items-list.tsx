@@ -9,26 +9,57 @@ import {
   type ItemActionState,
 } from '../actions'
 import { addCustomUnitAction } from '../../_actions/units'
-import type { PrepItem } from '@/lib/db/queries/prep-items'
+import type { PrepItemDisplay } from '@/lib/translation/apply'
 import { formatAmount } from '@/lib/units'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { UnitSelect } from '@/components/unit-select'
+import { TranslationCorrections, type Correctable } from '@/components/translation-corrections'
 
 export function ItemsList({
   items,
   canManage,
   customUnits,
+  customUnitLabels,
+  lang,
 }: {
-  items: PrepItem[]
+  items: PrepItemDisplay[]
   canManage: boolean
   customUnits: string[]
+  customUnitLabels: Record<string, string>
+  lang: 'en' | 'es'
 }) {
   // Open inline when the catalog is empty; otherwise collapse to a button so the
   // list isn't pushed down by the form (and we avoid deeply nested dropdowns).
   const [expanded, setExpanded] = useState(items.length === 0)
+
+  // Translated fields the viewer could correct (only when actually translated).
+  const corrections: Correctable[] = []
+  for (const item of items) {
+    if (item.sourceLanguage === lang) continue
+    corrections.push({
+      entityType: 'prep_item',
+      entityId: item.id,
+      field: 'name',
+      label: 'Item',
+      sourceText: item.name,
+      sourceLanguage: item.sourceLanguage,
+      currentTranslation: item.nameDisplay,
+    })
+    if (item.description && item.descriptionDisplay) {
+      corrections.push({
+        entityType: 'prep_item',
+        entityId: item.id,
+        field: 'description',
+        label: 'Description',
+        sourceText: item.description,
+        sourceLanguage: item.sourceLanguage,
+        currentTranslation: item.descriptionDisplay,
+      })
+    }
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -55,10 +86,18 @@ export function ItemsList({
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
-            <ItemRow key={item.id} item={item} canManage={canManage} customUnits={customUnits} />
+            <ItemRow
+              key={item.id}
+              item={item}
+              canManage={canManage}
+              customUnits={customUnits}
+              customUnitLabels={customUnitLabels}
+              lang={lang}
+            />
           ))}
         </ul>
       )}
+      <TranslationCorrections items={corrections} targetLanguage={lang} />
     </div>
   )
 }
@@ -223,12 +262,19 @@ function ItemRow({
   item,
   canManage,
   customUnits,
+  customUnitLabels,
+  lang,
 }: {
-  item: PrepItem
+  item: PrepItemDisplay
   canManage: boolean
   customUnits: string[]
+  customUnitLabels: Record<string, string>
+  lang: 'en' | 'es'
 }) {
   const [editing, setEditing] = useState(false)
+  // Swap a custom-unit label for its translation; built-ins pass through and get
+  // translated by formatAmount via lang.
+  const unitLabel = (u: string | null) => (u && customUnitLabels[u]) || u
 
   if (editing) {
     return <EditItemForm item={item} customUnits={customUnits} onDone={() => setEditing(false)} />
@@ -237,18 +283,18 @@ function ItemRow({
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5">
       <div className="min-w-0">
-        <div className="truncate font-medium">{item.name}</div>
-        {item.description && (
-          <div className="truncate text-sm text-muted-foreground">{item.description}</div>
+        <div className="truncate font-medium">{item.nameDisplay}</div>
+        {item.descriptionDisplay && (
+          <div className="truncate text-sm text-muted-foreground">{item.descriptionDisplay}</div>
         )}
         {item.defaultQuantity && (
           <div className="text-sm text-muted-foreground">
-            Default: {formatAmount(item.defaultQuantity, item.defaultUnit)}
+            Default: {formatAmount(item.defaultQuantity, unitLabel(item.defaultUnit), lang)}
           </div>
         )}
         {item.parQuantity && (
           <div className="text-sm text-muted-foreground">
-            Par: {formatAmount(item.parQuantity, item.parUnit)}
+            Par: {formatAmount(item.parQuantity, unitLabel(item.parUnit), lang)}
           </div>
         )}
       </div>
@@ -303,7 +349,7 @@ function EditItemForm({
   customUnits,
   onDone,
 }: {
-  item: PrepItem
+  item: PrepItemDisplay
   customUnits: string[]
   onDone: () => void
 }) {

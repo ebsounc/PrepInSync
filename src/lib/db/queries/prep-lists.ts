@@ -5,7 +5,10 @@ import { db, prepLists, prepListEntries, prepItems, profiles } from '@/lib/db'
 
 export type PrepList = typeof prepLists.$inferSelect
 
-export type PrepListWithProgress = PrepList & { total: number; done: number }
+export type PrepListWithProgress = PrepList & {
+  total: number
+  done: number
+}
 
 export type PrepListEntryWithMeta = {
   id: string
@@ -21,6 +24,10 @@ export type PrepListEntryWithMeta = {
   completed: boolean
   completedAt: Date | null
   completedByName: string | null
+  // Source languages for translation (the author's preferred language per field).
+  itemSourceLanguage: 'en' | 'es'
+  notesSourceLanguage: 'en' | 'es'
+  cookNoteSourceLanguage: 'en' | 'es'
 }
 
 export async function getPrepListsByRestaurant(
@@ -32,6 +39,7 @@ export async function getPrepListsByRestaurant(
       restaurantId: prepLists.restaurantId,
       title: prepLists.title,
       date: prepLists.date,
+      sourceLanguage: prepLists.sourceLanguage,
       createdBy: prepLists.createdBy,
       createdAt: prepLists.createdAt,
       total: sql<number>`count(${prepListEntries.id})::int`,
@@ -71,6 +79,7 @@ export async function getPrepListEntries(
       id: prepListEntries.id,
       prepItemId: prepListEntries.prepItemId,
       itemName: prepItems.name,
+      itemSourceLanguage: prepItems.sourceLanguage,
       quantity: prepListEntries.quantity,
       unit: prepListEntries.unit,
       isStarred: prepListEntries.isStarred,
@@ -83,6 +92,10 @@ export async function getPrepListEntries(
       completedByLast: profiles.lastName,
       cookNoteByFirst: cookNoteProfile.firstName,
       cookNoteByLast: cookNoteProfile.lastName,
+      // Source languages are stored on the row (set to the writer's language at
+      // write time) so they stay stable when an author later changes their preference.
+      notesSourceLanguage: prepListEntries.notesSourceLanguage,
+      cookNoteSourceLanguage: prepListEntries.cookNoteSourceLanguage,
     })
     .from(prepListEntries)
     .innerJoin(prepLists, eq(prepLists.id, prepListEntries.prepListId))
@@ -109,6 +122,9 @@ export async function getPrepListEntries(
     completed: r.completed,
     completedAt: r.completedAt,
     completedByName: fullName(r.completedByFirst, r.completedByLast),
+    itemSourceLanguage: r.itemSourceLanguage,
+    notesSourceLanguage: r.notesSourceLanguage,
+    cookNoteSourceLanguage: r.cookNoteSourceLanguage,
   }))
 }
 
@@ -116,6 +132,7 @@ export async function createPrepList(data: {
   restaurantId: string
   title: string
   date: string
+  sourceLanguage: 'en' | 'es'
   createdBy: string
 }): Promise<PrepList> {
   const [row] = await db
@@ -124,6 +141,7 @@ export async function createPrepList(data: {
       restaurantId: data.restaurantId,
       title: data.title,
       date: data.date,
+      sourceLanguage: data.sourceLanguage,
       createdBy: data.createdBy,
     })
     .returning()
@@ -131,14 +149,15 @@ export async function createPrepList(data: {
 }
 
 // restaurantId scopes the update so one restaurant can't rename another's list.
+// sourceLanguage is re-stamped to the editor's language (the title text is theirs now).
 export async function updatePrepList(
   id: string,
   restaurantId: string,
-  data: { title: string; date: string }
+  data: { title: string; date: string; sourceLanguage: 'en' | 'es' }
 ) {
   await db
     .update(prepLists)
-    .set({ title: data.title, date: data.date })
+    .set({ title: data.title, date: data.date, sourceLanguage: data.sourceLanguage })
     .where(and(eq(prepLists.id, id), eq(prepLists.restaurantId, restaurantId)))
 }
 

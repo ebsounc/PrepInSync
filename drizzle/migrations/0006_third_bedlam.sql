@@ -1,0 +1,2 @@
+ALTER TABLE "translations" DROP CONSTRAINT "translations_entity_type_entity_id_field_target_language_unique";--> statement-breakpoint
+ALTER TABLE "translations" ADD CONSTRAINT "translations_restaurant_id_entity_type_entity_id_field_target_language_unique" UNIQUE("restaurant_id","entity_type","entity_id","field","target_language");

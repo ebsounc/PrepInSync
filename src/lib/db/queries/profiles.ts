@@ -10,6 +10,11 @@ export async function getProfileByUserId(userId: string): Promise<Profile | null
   return rows[0] ?? null
 }
 
+// Self-service: a user sets their own reading/writing language (any member).
+export async function setPreferredLanguage(userId: string, lang: 'en' | 'es') {
+  await db.update(profiles).set({ preferredLanguage: lang }).where(eq(profiles.id, userId))
+}
+
 export async function getProfilesByRestaurant(restaurantId: string): Promise<Profile[]> {
   return db
     .select()

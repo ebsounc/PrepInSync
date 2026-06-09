@@ -78,6 +78,7 @@ export async function createListAction(
     restaurantId: ctx.restaurantId,
     title: parsed.data.title,
     date: parsed.data.date,
+    sourceLanguage: ctx.profile.preferredLanguage,
     createdBy: ctx.profile.id,
   })
   revalidatePath('/prep-lists')
@@ -102,7 +103,11 @@ export async function updateListAction(
   })
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  await updatePrepList(list.id, ctx.restaurantId, { title: parsed.data.title, date: parsed.data.date })
+  await updatePrepList(list.id, ctx.restaurantId, {
+    title: parsed.data.title,
+    date: parsed.data.date,
+    sourceLanguage: ctx.profile.preferredLanguage,
+  })
   revalidatePath(`/prep-lists/${list.id}`)
   revalidatePath('/prep-lists')
   return { success: true }
@@ -156,6 +161,7 @@ export async function addEntryAction(
     unit: parsed.data.unit,
     isStarred: parsed.data.isStarred === 'true',
     notes: parsed.data.notes ? parsed.data.notes : null,
+    notesSourceLanguage: ctx.profile.preferredLanguage,
   })
   revalidatePath(`/prep-lists/${list.id}`)
   return { success: true }
@@ -199,6 +205,7 @@ export async function updateEntryAction(
     unit: parsed.data.unit,
     isStarred: parsed.data.isStarred === 'true',
     notes: parsed.data.notes ? parsed.data.notes : null,
+    notesSourceLanguage: ctx.profile.preferredLanguage,
   })
   revalidatePath(`/prep-lists/${entry.prepListId}`)
   return { success: true }
@@ -256,7 +263,12 @@ export async function saveCookNoteAction(entryId: string, note: string): Promise
   const entry = await accessibleEntry(entryId, ctx.restaurantId)
   if (!entry) return { error: 'Entry not found.' }
   const trimmed = note.trim().slice(0, 500)
-  await setEntryCookNote(entry.id, trimmed.length ? trimmed : null, ctx.profile.id)
+  await setEntryCookNote(
+    entry.id,
+    trimmed.length ? trimmed : null,
+    ctx.profile.id,
+    ctx.profile.preferredLanguage
+  )
   revalidatePath(`/prep-lists/${entry.prepListId}`)
   return {}
 }

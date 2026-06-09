@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getRestaurantById } from '@/lib/db/queries/restaurants'
 import { getPrepListsByRestaurant, getPrepListEntries } from '@/lib/db/queries/prep-lists'
+import { translatePrepLists, translatePrepListEntries } from '@/lib/translation/apply'
 import { formatListDate, getGreeting } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { PrepListCard } from '../_components/prep-list-card'
@@ -25,15 +26,30 @@ export default async function DashboardPage() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
   const greeting = getGreeting(timezone)
 
+  const lang = profile.preferredLanguage
   const lists = await getPrepListsByRestaurant(profile.restaurantId)
-  const todays = lists.filter((l) => l.date === today)
-  // Fetch entries for today's lists so the card can show a read-only preview checklist.
-  const todaysWithEntries = await Promise.all(
-    todays.map(async (list) => ({
-      list,
-      entries: await getPrepListEntries(list.id, profile.restaurantId!),
-    }))
+  const todays = await translatePrepLists(
+    lists.filter((l) => l.date === today),
+    profile.restaurantId,
+    lang
   )
+  // Fetch entries for today's lists so the card can show a read-only preview checklist.
+  // Translate them all in ONE batched call (not one per list) — on a cold cache that's
+  // a single LLM round-trip for the whole dashboard. Re-group by list afterward.
+  const rawByList = await Promise.all(
+    todays.map((list) => getPrepListEntries(list.id, profile.restaurantId!))
+  )
+  const translatedFlat = await translatePrepListEntries(
+    rawByList.flat(),
+    profile.restaurantId,
+    lang
+  )
+  let offset = 0
+  const todaysWithEntries = todays.map((list, i) => {
+    const entries = translatedFlat.slice(offset, offset + rawByList[i].length)
+    offset += rawByList[i].length
+    return { list, entries }
+  })
 
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6">

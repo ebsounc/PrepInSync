@@ -5,6 +5,27 @@ import { UNIT_VALUES } from '@/lib/units'
 
 export type RestaurantUnit = typeof restaurantUnits.$inferSelect
 
+// Custom units with the creator's language, for runtime translation of the label.
+export type RestaurantUnitForTranslation = {
+  id: string
+  label: string
+  sourceLanguage: 'en' | 'es'
+}
+
+export async function getRestaurantUnitsForTranslation(
+  restaurantId: string
+): Promise<RestaurantUnitForTranslation[]> {
+  return db
+    .select({
+      id: restaurantUnits.id,
+      label: restaurantUnits.label,
+      sourceLanguage: restaurantUnits.sourceLanguage,
+    })
+    .from(restaurantUnits)
+    .where(eq(restaurantUnits.restaurantId, restaurantId))
+    .orderBy(asc(restaurantUnits.label))
+}
+
 // A unit submitted on an item/entry is valid if it's a built-in OR a custom unit
 // belonging to this restaurant. Used by the item/entry actions at write time.
 export async function isValidUnit(restaurantId: string, unit: string): Promise<boolean> {
@@ -30,6 +51,7 @@ export async function getRestaurantUnits(restaurantId: string): Promise<Restaura
 export async function createRestaurantUnit(data: {
   restaurantId: string
   label: string
+  sourceLanguage: 'en' | 'es'
   createdBy: string
 }): Promise<RestaurantUnit> {
   const [row] = await db
@@ -37,6 +59,7 @@ export async function createRestaurantUnit(data: {
     .values({
       restaurantId: data.restaurantId,
       label: data.label,
+      sourceLanguage: data.sourceLanguage,
       createdBy: data.createdBy,
     })
     .onConflictDoNothing({ target: [restaurantUnits.restaurantId, restaurantUnits.label] })

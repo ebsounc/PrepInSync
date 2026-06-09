@@ -1,0 +1,3 @@
+ALTER TABLE "translations" ADD COLUMN "restaurant_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "translations" ADD CONSTRAINT "translations_restaurant_id_restaurants_id_fk" FOREIGN KEY ("restaurant_id") REFERENCES "public"."restaurants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "glossary_overrides" ADD CONSTRAINT "glossary_overrides_restaurant_id_source_term_source_language_target_language_unique" UNIQUE("restaurant_id","source_term","source_language","target_language");

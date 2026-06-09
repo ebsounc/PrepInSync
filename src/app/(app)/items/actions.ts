@@ -105,6 +105,8 @@ export async function createItemAction(
     defaultUnit: data.defaultUnit,
     parQuantity: data.parQuantity,
     parUnit: data.parUnit,
+    // Authored in the creator's language — drives translation direction.
+    sourceLanguage: ctx.profile.preferredLanguage,
     createdBy: ctx.profile.id,
   })
   revalidatePath('/items')
@@ -131,6 +133,7 @@ export async function updateItemAction(
     defaultUnit: data.defaultUnit,
     parQuantity: data.parQuantity,
     parUnit: data.parUnit,
+    sourceLanguage: ctx.profile.preferredLanguage,
   })
   revalidatePath('/items')
   return { success: true }

@@ -171,54 +171,78 @@ export const restaurantUnits = pgTable(
       .notNull()
       .references(() => restaurants.id),
     label: text('label').notNull(),
+    sourceLanguage: text('source_language', { enum: LANGUAGES }).notNull().default('en'),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => profiles.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
-  (t) => [unique().on(t.restaurantId, t.label)]
+  (t) => [
+    unique().on(t.restaurantId, t.label),
+    check('restaurant_units_source_language_check', inLiterals(t.sourceLanguage, LANGUAGES)),
+  ]
 )
 
 // ---------------------------------------------------------------------------
 // prep_lists
 // A shift/day prep list authored by a chef.
 // ---------------------------------------------------------------------------
-export const prepLists = pgTable('prep_lists', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  restaurantId: uuid('restaurant_id')
-    .notNull()
-    .references(() => restaurants.id),
-  title: text('title').notNull(),
-  date: date('date').notNull(),
-  createdBy: uuid('created_by')
-    .notNull()
-    .references(() => profiles.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+export const prepLists = pgTable(
+  'prep_lists',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    restaurantId: uuid('restaurant_id')
+      .notNull()
+      .references(() => restaurants.id),
+    title: text('title').notNull(),
+    date: date('date').notNull(),
+    // Language the title was authored in (set to the writer's language on create/edit).
+    sourceLanguage: text('source_language', { enum: LANGUAGES }).notNull().default('en'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => profiles.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [check('prep_lists_source_language_check', inLiterals(t.sourceLanguage, LANGUAGES))]
+)
 
 // ---------------------------------------------------------------------------
 // prep_list_entries
 // A single item on a prep list with quantity, assignment, and completion state.
 // ---------------------------------------------------------------------------
-export const prepListEntries = pgTable('prep_list_entries', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  prepListId: uuid('prep_list_id')
-    .notNull()
-    .references(() => prepLists.id, { onDelete: 'cascade' }),
-  prepItemId: uuid('prep_item_id')
-    .notNull()
-    .references(() => prepItems.id),
-  quantity: numeric('quantity').notNull(),
-  unit: text('unit').notNull(),
-  isStarred: boolean('is_starred').notNull().default(false),
-  notes: text('notes'), // builder/prep note (instructions, set when building the list)
-  cookNote: text('cook_note'), // cook's note from the floor ("only half a case left")
-  cookNoteBy: uuid('cook_note_by').references(() => profiles.id), // who wrote the cook note
-  completed: boolean('completed').notNull().default(false),
-  completedAt: timestamp('completed_at'),
-  completedBy: uuid('completed_by').references(() => profiles.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+export const prepListEntries = pgTable(
+  'prep_list_entries',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    prepListId: uuid('prep_list_id')
+      .notNull()
+      .references(() => prepLists.id, { onDelete: 'cascade' }),
+    prepItemId: uuid('prep_item_id')
+      .notNull()
+      .references(() => prepItems.id),
+    quantity: numeric('quantity').notNull(),
+    unit: text('unit').notNull(),
+    isStarred: boolean('is_starred').notNull().default(false),
+    notes: text('notes'), // builder/prep note (instructions, set when building the list)
+    // Language `notes` / `cook_note` were authored in. Tracked separately because the
+    // builder note and the cook note can be written by different people in different
+    // languages. Set to the writer's language whenever the text is written/edited.
+    notesSourceLanguage: text('notes_source_language', { enum: LANGUAGES }).notNull().default('en'),
+    cookNote: text('cook_note'), // cook's note from the floor ("only half a case left")
+    cookNoteSourceLanguage: text('cook_note_source_language', { enum: LANGUAGES })
+      .notNull()
+      .default('en'),
+    cookNoteBy: uuid('cook_note_by').references(() => profiles.id), // who wrote the cook note
+    completed: boolean('completed').notNull().default(false),
+    completedAt: timestamp('completed_at'),
+    completedBy: uuid('completed_by').references(() => profiles.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    check('ple_notes_source_language_check', inLiterals(t.notesSourceLanguage, LANGUAGES)),
+    check('ple_cook_note_source_language_check', inLiterals(t.cookNoteSourceLanguage, LANGUAGES)),
+  ]
+)
 
 // ---------------------------------------------------------------------------
 // recipes
@@ -274,6 +298,12 @@ export const translations = pgTable(
   'translations',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    // Denormalized restaurant owner of the source entity. Drives RLS isolation
+    // (the table is keyed by entity_id, which alone can't be traced to a tenant)
+    // and is set at write time by the cache layer, which always knows it.
+    restaurantId: uuid('restaurant_id')
+      .notNull()
+      .references(() => restaurants.id),
     entityType: text('entity_type').notNull(), // e.g. 'prep_item', 'recipe', 'prep_list_entry'
     entityId: uuid('entity_id').notNull(),
     field: text('field').notNull(), // e.g. 'name', 'instructions', 'notes'
@@ -284,7 +314,16 @@ export const translations = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (t) => [
-    unique().on(t.entityType, t.entityId, t.field, t.targetLanguage),
+    // restaurant_id is part of the key so a row can never be re-homed to another
+    // tenant on upsert conflict (entity_id is per-restaurant, but keying on it
+    // alone would let a colliding write overwrite restaurant_id).
+    unique().on(
+      t.restaurantId,
+      t.entityType,
+      t.entityId,
+      t.field,
+      t.targetLanguage
+    ),
     check(
       'translations_target_language_check',
       inLiterals(t.targetLanguage, LANGUAGES)
@@ -322,6 +361,14 @@ export const glossaryOverrides = pgTable(
     check(
       'glossary_overrides_target_language_check',
       inLiterals(t.targetLanguage, LANGUAGES)
+    ),
+    // One override per term+direction per restaurant — a re-correction upserts
+    // rather than piling up duplicate rows.
+    unique().on(
+      t.restaurantId,
+      t.sourceTerm,
+      t.sourceLanguage,
+      t.targetLanguage
     ),
   ]
 )

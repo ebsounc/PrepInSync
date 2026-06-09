@@ -19,7 +19,7 @@ import {
   type ListActionState,
 } from '../../actions'
 import { addCustomUnitAction } from '../../../_actions/units'
-import type { PrepListEntryWithMeta } from '@/lib/db/queries/prep-lists'
+import type { PrepListEntryDisplay } from '@/lib/translation/apply'
 import { formatAmount, formatQuantity } from '@/lib/units'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,11 +31,15 @@ export function EntryRow({
   entry,
   canManage,
   customUnits,
+  customUnitLabels,
+  lang,
   currentUserId,
 }: {
-  entry: PrepListEntryWithMeta
+  entry: PrepListEntryDisplay
   canManage: boolean
   customUnits: string[]
+  customUnitLabels: Record<string, string>
+  lang: 'en' | 'es'
   currentUserId: string
 }) {
   const [editing, setEditing] = useState(false)
@@ -47,6 +51,8 @@ export function EntryRow({
     <DisplayEntry
       entry={entry}
       canManage={canManage}
+      customUnitLabels={customUnitLabels}
+      lang={lang}
       currentUserId={currentUserId}
       onEdit={() => setEditing(true)}
     />
@@ -56,15 +62,20 @@ export function EntryRow({
 function DisplayEntry({
   entry,
   canManage,
+  customUnitLabels,
+  lang,
   currentUserId,
   onEdit,
 }: {
-  entry: PrepListEntryWithMeta
+  entry: PrepListEntryDisplay
   canManage: boolean
+  customUnitLabels: Record<string, string>
+  lang: 'en' | 'es'
   currentUserId: string
   onEdit: () => void
 }) {
   const [togglePending, startToggle] = useTransition()
+  const displayUnit = customUnitLabels[entry.unit] ?? entry.unit
 
   return (
     <li className={cn('rounded-lg border', entry.completed && 'bg-muted/40')}>
@@ -94,10 +105,10 @@ function DisplayEntry({
               {entry.isStarred && (
                 <StarIcon className="size-4 shrink-0 fill-current text-amber-500" />
               )}
-              <span className="truncate">{entry.itemName}</span>
+              <span className="truncate">{entry.itemNameDisplay}</span>
             </span>
             <span className="text-sm text-muted-foreground">
-              {formatAmount(entry.quantity, entry.unit)}
+              {formatAmount(entry.quantity, displayUnit, lang)}
             </span>
           </span>
         </button>
@@ -113,9 +124,9 @@ function DisplayEntry({
       )}
 
       {/* Instructions: the builder's note, read-only here (edited via Edit). */}
-      {entry.notes && (
+      {entry.notesDisplay && (
         <p className="px-3 pb-1 text-sm">
-          <span className="text-muted-foreground">Instructions:</span> {entry.notes}
+          <span className="text-muted-foreground">Instructions:</span> {entry.notesDisplay}
         </p>
       )}
 
@@ -133,7 +144,7 @@ function DisplayEntry({
   )
 }
 
-function StarToggle({ entry }: { entry: PrepListEntryWithMeta }) {
+function StarToggle({ entry }: { entry: PrepListEntryDisplay }) {
   const [pending, start] = useTransition()
   return (
     <Button
@@ -179,11 +190,15 @@ function CookNoteSection({
   entry,
   currentUserId,
 }: {
-  entry: PrepListEntryWithMeta
+  entry: PrepListEntryDisplay
   currentUserId: string
 }) {
   const [open, setOpen] = useState(false)
-  const [value, setValue] = useState(entry.cookNote ?? '')
+  // Editor seeds from the viewer's-language text (cookNoteDisplay): you edit what
+  // you read. On save, saveCookNoteAction re-stamps cook_note_by to the editor, so
+  // the note's source language becomes the editor's — and it re-translates back for
+  // the other language. Fully bidirectional.
+  const [value, setValue] = useState(entry.cookNoteDisplay ?? '')
   const [pending, start] = useTransition()
 
   // "Your note" to the author; "<Name>'s note" to everyone else.
@@ -201,12 +216,12 @@ function CookNoteSection({
           <button
             type="button"
             onClick={() => {
-              setValue(entry.cookNote ?? '')
+              setValue(entry.cookNoteDisplay ?? '')
               setOpen(true)
             }}
             className="text-left text-sm underline-offset-2 hover:underline"
           >
-            <span className="text-muted-foreground">{noteLabel}:</span> {entry.cookNote}
+            <span className="text-muted-foreground">{noteLabel}:</span> {entry.cookNoteDisplay}
           </button>
         ) : (
           <Button
@@ -265,7 +280,7 @@ function EditEntryForm({
   customUnits,
   onDone,
 }: {
-  entry: PrepListEntryWithMeta
+  entry: PrepListEntryDisplay
   customUnits: string[]
   onDone: () => void
 }) {

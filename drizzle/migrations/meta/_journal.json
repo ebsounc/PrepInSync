@@ -36,6 +36,27 @@
       "when": 1780761921125,
       "tag": "0004_round3b_one_owner_index",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781015839896,
+      "tag": "0005_petite_mercury",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781018475950,
+      "tag": "0006_third_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781034288095,
+      "tag": "0007_blushing_gabe_jones",
+      "breakpoints": true
     }
   ]
 }

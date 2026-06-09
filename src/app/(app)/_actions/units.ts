@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
@@ -40,7 +41,11 @@ export async function addCustomUnitAction(label: string): Promise<{ error?: stri
   await createRestaurantUnit({
     restaurantId: profile.restaurantId,
     label: parsed.data,
+    sourceLanguage: profile.preferredLanguage,
     createdBy: profile.id,
   })
+  // Surface the new unit (and its pending translation) in the builder forms.
+  revalidatePath('/items')
+  revalidatePath('/prep-lists', 'layout')
   return {}
 }

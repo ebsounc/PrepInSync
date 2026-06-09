@@ -25,21 +25,31 @@ export type Unit = (typeof UNIT_VALUES)[number]
 
 // label = singular form; labelPlural = shown when quantity != 1. Abbreviations
 // (kg, oz, g, L, qt, gal) don't pluralize; word-like units do (lb→lbs, case→cases).
-export const UNITS: { value: Unit; label: string; labelPlural: string }[] = [
-  { value: 'lb', label: 'lb', labelPlural: 'lbs' },
-  { value: 'kg', label: 'kg', labelPlural: 'kg' },
-  { value: 'oz', label: 'oz', labelPlural: 'oz' },
-  { value: 'g', label: 'g', labelPlural: 'g' },
-  { value: 'qt', label: 'qt', labelPlural: 'qt' },
-  { value: 'L', label: 'L', labelPlural: 'L' },
-  { value: 'gal', label: 'gal', labelPlural: 'gal' },
-  { value: 'pint', label: 'pint', labelPlural: 'pints' },
-  { value: 'case', label: 'case', labelPlural: 'cases' },
-  { value: 'tray', label: 'tray', labelPlural: 'trays' },
-  { value: 'container', label: 'container', labelPlural: 'containers' },
-  { value: 'bag', label: 'bag', labelPlural: 'bags' },
-  { value: 'bunch', label: 'bunch', labelPlural: 'bunches' },
-  { value: 'each', label: 'each', labelPlural: 'each' },
+// labelEs / labelPluralEs are the static Spanish forms (from the kitchen glossary
+// in docs/translation-validation.md §2). Built-in units are translated from this
+// table — they never go through the LLM. Metric abbreviations (kg, g, L) are the
+// same in both languages.
+export const UNITS: {
+  value: Unit
+  label: string
+  labelPlural: string
+  labelEs: string
+  labelPluralEs: string
+}[] = [
+  { value: 'lb', label: 'lb', labelPlural: 'lbs', labelEs: 'libra', labelPluralEs: 'libras' },
+  { value: 'kg', label: 'kg', labelPlural: 'kg', labelEs: 'kg', labelPluralEs: 'kg' },
+  { value: 'oz', label: 'oz', labelPlural: 'oz', labelEs: 'onza', labelPluralEs: 'onzas' },
+  { value: 'g', label: 'g', labelPlural: 'g', labelEs: 'g', labelPluralEs: 'g' },
+  { value: 'qt', label: 'qt', labelPlural: 'qt', labelEs: 'cuarto', labelPluralEs: 'cuartos' },
+  { value: 'L', label: 'L', labelPlural: 'L', labelEs: 'L', labelPluralEs: 'L' },
+  { value: 'gal', label: 'gal', labelPlural: 'gal', labelEs: 'galón', labelPluralEs: 'galones' },
+  { value: 'pint', label: 'pint', labelPlural: 'pints', labelEs: 'pinta', labelPluralEs: 'pintas' },
+  { value: 'case', label: 'case', labelPlural: 'cases', labelEs: 'caja', labelPluralEs: 'cajas' },
+  { value: 'tray', label: 'tray', labelPlural: 'trays', labelEs: 'bandeja', labelPluralEs: 'bandejas' },
+  { value: 'container', label: 'container', labelPlural: 'containers', labelEs: 'recipiente', labelPluralEs: 'recipientes' },
+  { value: 'bag', label: 'bag', labelPlural: 'bags', labelEs: 'bolsa', labelPluralEs: 'bolsas' },
+  { value: 'bunch', label: 'bunch', labelPlural: 'bunches', labelEs: 'manojo', labelPluralEs: 'manojos' },
+  { value: 'each', label: 'each', labelPlural: 'each', labelEs: 'c/u', labelPluralEs: 'c/u' },
 ]
 
 const UNIT_BY_VALUE = new Map(UNITS.map((u) => [u.value, u]))
@@ -51,19 +61,30 @@ export function formatQuantity(q: string | null): string {
   return Number.isFinite(n) ? String(n) : q
 }
 
-// Renders a unit pluralized to match the quantity. Built-in units use their
-// labelPlural; custom (restaurant) units are shown verbatim (we don't know their
-// plural form). Quantity of exactly 1 (or unparseable) uses the singular.
-export function formatUnit(unit: string, quantity: string | number | null): string {
+// Renders a unit pluralized to match the quantity, in the given language
+// (default 'en'). Built-in units use their (Spanish) label/plural from the table;
+// custom (restaurant) units are shown verbatim — callers pass an already-translated
+// label for those. Quantity of exactly 1 (or unparseable) uses the singular.
+export function formatUnit(
+  unit: string,
+  quantity: string | number | null,
+  lang: 'en' | 'es' = 'en'
+): string {
   const builtin = UNIT_BY_VALUE.get(unit as Unit)
   if (!builtin) return unit
   const n = typeof quantity === 'number' ? quantity : Number(quantity)
-  return Number.isFinite(n) && n !== 1 ? builtin.labelPlural : builtin.label
+  const plural = Number.isFinite(n) && n !== 1
+  if (lang === 'es') return plural ? builtin.labelPluralEs : builtin.labelEs
+  return plural ? builtin.labelPlural : builtin.label
 }
 
-// Convenience: "2 lbs", "1 case", "3 trays". Empty quantity falls back to the unit.
-export function formatAmount(quantity: string | null, unit: string | null): string {
+// Convenience: "2 lbs" / "2 libras". Empty quantity falls back to the unit.
+export function formatAmount(
+  quantity: string | null,
+  unit: string | null,
+  lang: 'en' | 'es' = 'en'
+): string {
   if (!unit) return formatQuantity(quantity)
   const q = formatQuantity(quantity)
-  return q ? `${q} ${formatUnit(unit, quantity)}` : formatUnit(unit, quantity)
+  return q ? `${q} ${formatUnit(unit, quantity, lang)}` : formatUnit(unit, quantity, lang)
 }
