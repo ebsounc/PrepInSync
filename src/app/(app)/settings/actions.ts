@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { setCookieLang, getActionDict } from '@/lib/i18n/server'
+import { getDictionary, resolveKey } from '@/lib/i18n'
 import {
   getProfileByUserId,
   transferOwnership,
@@ -17,24 +19,28 @@ export type SettingsState = { error?: string; success?: boolean } | null
 const VALID_TIMEZONES = new Set(Intl.supportedValuesOf('timeZone'))
 
 const restaurantSchema = z.object({
-  name: z.string().trim().min(1, 'Restaurant name is required').max(100),
-  timezone: z.string().refine((v) => VALID_TIMEZONES.has(v), 'Select a valid timezone'),
+  name: z.string().trim().min(1, 'errors.settings.restaurantNameRequired').max(100),
+  timezone: z.string().refine((v) => VALID_TIMEZONES.has(v), 'errors.settings.invalidTimezone'),
   listDefaultDay: z.enum(['today', 'next_day']),
 })
 
-// Management-only guard returning the caller's restaurant context.
+// Management-only guard returning the caller's restaurant context (+ localized dict).
 async function requireManager() {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: 'You must be signed in.' as const }
+  if (!user) return { error: (await getActionDict()).errors.common.signInRequired }
 
   const profile = await getProfileByUserId(user.id)
   if (!profile?.restaurantId || !profile.isActive || !isManagementRole(profile.role)) {
-    return { error: 'You do not have permission to manage settings.' as const }
+    return { error: (await getActionDict(profile?.preferredLanguage)).errors.settings.noPermission }
   }
-  return { profile, restaurantId: profile.restaurantId }
+  return {
+    profile,
+    restaurantId: profile.restaurantId,
+    dict: getDictionary(profile.preferredLanguage),
+  }
 }
 
 export async function updateRestaurantAction(
@@ -49,7 +55,7 @@ export async function updateRestaurantAction(
     timezone: formData.get('timezone'),
     listDefaultDay: formData.get('listDefaultDay'),
   })
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!parsed.success) return { error: resolveKey(ctx.dict, parsed.error.issues[0].message) }
 
   await updateRestaurant(ctx.restaurantId, {
     name: parsed.data.name,
@@ -72,17 +78,21 @@ export async function updateLanguageAction(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: 'You must be signed in.' }
+  if (!user) return { error: (await getActionDict()).errors.common.signInRequired }
 
   const profile = await getProfileByUserId(user.id)
   if (!profile?.restaurantId || !profile.isActive) {
-    return { error: 'You do not have access.' }
+    return { error: (await getActionDict(profile?.preferredLanguage)).errors.common.noAccess }
   }
 
   const parsed = z.enum(['en', 'es']).safeParse(formData.get('language'))
-  if (!parsed.success) return { error: 'Pick a valid language.' }
+  if (!parsed.success) {
+    return { error: getDictionary(profile.preferredLanguage).errors.settings.invalidLanguage }
+  }
 
   await setPreferredLanguage(user.id, parsed.data)
+  // Keep the cookie in sync so logged-out pages + <html lang> reflect the choice.
+  await setCookieLang(parsed.data)
   revalidatePath('/', 'layout')
   return { success: true }
 }
@@ -93,13 +103,17 @@ async function requireOwner() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: 'You must be signed in.' as const }
+  if (!user) return { error: (await getActionDict()).errors.common.signInRequired }
 
   const profile = await getProfileByUserId(user.id)
   if (!profile?.restaurantId || !profile.isActive || profile.role !== 'owner') {
-    return { error: 'Only the owner can transfer ownership.' as const }
+    return { error: (await getActionDict(profile?.preferredLanguage)).errors.settings.ownerOnlyTransfer }
   }
-  return { profile, restaurantId: profile.restaurantId }
+  return {
+    profile,
+    restaurantId: profile.restaurantId,
+    dict: getDictionary(profile.preferredLanguage),
+  }
 }
 
 export async function transferOwnershipAction(targetId: string): Promise<{ error?: string }> {
@@ -107,15 +121,15 @@ export async function transferOwnershipAction(targetId: string): Promise<{ error
   if ('error' in ctx) return { error: ctx.error }
 
   const parsedId = z.string().uuid().safeParse(targetId)
-  if (!parsedId.success) return { error: 'Invalid team member.' }
-  if (parsedId.data === ctx.profile.id) return { error: "You're already the owner." }
+  if (!parsedId.success) return { error: ctx.dict.errors.settings.invalidMember }
+  if (parsedId.data === ctx.profile.id) return { error: ctx.dict.errors.settings.alreadyOwner }
 
   const target = await getProfileByUserId(parsedId.data)
   if (!target || target.restaurantId !== ctx.restaurantId) {
-    return { error: 'Team member not found.' }
+    return { error: ctx.dict.errors.settings.memberNotFound }
   }
-  if (!target.isActive) return { error: 'That member is deactivated.' }
-  if (target.role === 'owner') return { error: 'That member is already the owner.' }
+  if (!target.isActive) return { error: ctx.dict.errors.settings.memberDeactivated }
+  if (target.role === 'owner') return { error: ctx.dict.errors.settings.memberAlreadyOwner }
 
   await transferOwnership(ctx.restaurantId, ctx.profile.id, target.id)
   revalidatePath('/settings')
@@ -129,7 +143,7 @@ export async function deleteRestaurantUnitAction(id: string): Promise<{ error?: 
   if ('error' in ctx) return { error: ctx.error }
 
   const parsedId = z.string().uuid().safeParse(id)
-  if (!parsedId.success) return { error: 'Invalid unit.' }
+  if (!parsedId.success) return { error: ctx.dict.errors.settings.invalidUnit }
 
   // deleteRestaurantUnit scopes by restaurantId, so a foreign id is a no-op.
   await deleteRestaurantUnit(parsedId.data, ctx.restaurantId)

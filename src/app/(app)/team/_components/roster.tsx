@@ -4,7 +4,8 @@ import { useState, useTransition } from 'react'
 import { Loader2Icon } from 'lucide-react'
 import { setCanCreateListsAction, setActiveAction, setRoleAction } from '../actions'
 import type { Profile } from '@/lib/db/queries/profiles'
-import { ROLE_LABELS, INVITABLE_ROLES } from '@/lib/auth/roles'
+import { INVITABLE_ROLES } from '@/lib/auth/roles'
+import { useT } from '@/lib/i18n/client'
 import { Button } from '@/components/ui/button'
 import {
   SelectField,
@@ -42,6 +43,7 @@ function RoleSelect({
   disabled: boolean
   onChange: (role: string) => void
 }) {
+  const { dict } = useT()
   return (
     <SelectField
       value={role}
@@ -51,12 +53,12 @@ function RoleSelect({
       }}
     >
       <SelectTrigger className="mt-0.5 h-9 min-h-9 w-auto text-sm">
-        <SelectValue>{() => ROLE_LABELS[role]}</SelectValue>
+        <SelectValue>{() => dict.roles[role]}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {INVITABLE_ROLES.map((r) => (
           <SelectItem key={r} value={r}>
-            {ROLE_LABELS[r]}
+            {dict.roles[r]}
           </SelectItem>
         ))}
       </SelectContent>
@@ -73,6 +75,7 @@ function Badge({ children }: { children: React.ReactNode }) {
 }
 
 function MemberRow({ member, isSelf }: { member: Profile; isSelf: boolean }) {
+  const { dict } = useT()
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const isOwner = member.role === 'owner'
@@ -89,10 +92,10 @@ function MemberRow({ member, isSelf }: { member: Profile; isSelf: boolean }) {
         <div className="min-w-0">
           <div className="truncate font-medium">
             {member.firstName} {member.lastName}
-            {isSelf && <span className="font-normal text-muted-foreground"> (you)</span>}
+            {isSelf && <span className="font-normal text-muted-foreground"> {dict.team.you}</span>}
           </div>
           {isOwner || isSelf ? (
-            <div className="text-sm text-muted-foreground">{ROLE_LABELS[member.role]}</div>
+            <div className="text-sm text-muted-foreground">{dict.roles[member.role]}</div>
           ) : (
             <RoleSelect
               role={member.role}
@@ -102,8 +105,8 @@ function MemberRow({ member, isSelf }: { member: Profile; isSelf: boolean }) {
           )}
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-          {!member.isActive && <Badge>Inactive</Badge>}
-          {member.canCreateLists && <Badge>Lists</Badge>}
+          {!member.isActive && <Badge>{dict.team.inactiveBadge}</Badge>}
+          {member.canCreateLists && <Badge>{dict.team.listsBadge}</Badge>}
         </div>
       </div>
 
@@ -118,7 +121,7 @@ function MemberRow({ member, isSelf }: { member: Profile; isSelf: boolean }) {
             disabled={pending}
             onClick={() => run(() => setCanCreateListsAction(member.id, !member.canCreateLists))}
           >
-            {member.canCreateLists ? 'Revoke list access' : 'Allow list creation'}
+            {member.canCreateLists ? dict.team.revokeListAccess : dict.team.allowListCreation}
           </Button>
           <Button
             type="button"
@@ -128,7 +131,7 @@ function MemberRow({ member, isSelf }: { member: Profile; isSelf: boolean }) {
             disabled={pending}
             onClick={() => run(() => setActiveAction(member.id, !member.isActive))}
           >
-            {member.isActive ? 'Deactivate' : 'Reactivate'}
+            {member.isActive ? dict.team.deactivate : dict.team.reactivate}
           </Button>
           {pending && <Loader2Icon className="size-4 animate-spin self-center" />}
         </div>

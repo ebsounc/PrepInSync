@@ -1,12 +1,12 @@
 import AuthFormWrapper from '@/components/auth/auth-form-wrapper'
+import { getDictionary } from '@/lib/i18n'
+import { getCookieLang } from '@/lib/i18n/server'
 import { ForgotPasswordForm } from './_components/forgot-password-form'
 
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage() {
+  const dict = getDictionary(await getCookieLang())
   return (
-    <AuthFormWrapper
-      title="Reset your password"
-      description="Enter your email and we'll send you a reset link"
-    >
+    <AuthFormWrapper title={dict.auth.forgotTitle} description={dict.auth.forgotDesc}>
       <ForgotPasswordForm />
     </AuthFormWrapper>
   )

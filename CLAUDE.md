@@ -26,6 +26,14 @@ Read these before working:
 - Each feature area is self-contained where possible.
 - Before changing the database, read `docs/database.md` — the DB map (Drizzle vs. raw-SQL split, migration workflow, RLS model per table).
 
+## Internationalization (UI strings) — distinct from the content-translation layer below
+- **Two separate systems.** The **translation rules** below govern user-authored *content* (item names, notes, units) via the LLM cache. This section governs the **static app chrome** (nav, buttons, labels, headings, placeholders, dates, role labels, server-action error/validation messages) via a hand-rolled dictionary. Don't conflate them.
+- **Never hardcode user-facing display text** in components or actions. Every string goes through `lib/i18n` dictionaries. Add each new string to **both** `lib/i18n/en.ts` and `lib/i18n/es.ts` — `type Dict = typeof en` makes the build fail if `es` is missing a key.
+- Server components/actions/format use `getDictionary(lang)`; client components use `useT()` from `lib/i18n/client`. Parameterized strings use `{token}` placeholders + `interpolate()`.
+- The active dictionary is provided to client code via `LanguageProvider` (so neither full dictionary enters the client JS bundle — keep it that way). Logged-in language = `profiles.preferred_language`; logged-out pages use the `lang` cookie (default `en`), set on signup/login/settings-change.
+- Server-action error/validation messages: Zod messages carry a dotted dictionary KEY (e.g. `'errors.items.nameRequired'`) resolved via `resolveKey(dict, …)` on return; the `{ error: string }` contract to client render sites is unchanged.
+- Full architecture + "how to add a string / a language": `docs/i18n.md`.
+
 ## Translation rules
 - Language is a **per-user preference**, not tied to role. Each user picks the language they read/write in. Roles govern permissions/workflow, not language.
 - Translation is **bidirectional** (English ↔ Spanish in v1). Content has a source language (whatever it was authored in); each viewer sees it in their preferred language. Input is usually English but not always — a Spanish-speaking chef can author in Spanish.

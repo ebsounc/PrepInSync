@@ -3,11 +3,13 @@
 import { useState, useTransition } from 'react'
 import { Loader2Icon, Trash2Icon } from 'lucide-react'
 import { deleteRestaurantUnitAction } from '../actions'
+import { useT } from '@/lib/i18n/client'
 import { Button } from '@/components/ui/button'
 
 export function UnitsManager({ units }: { units: { id: string; label: string }[] }) {
+  const { dict } = useT()
   if (units.length === 0) {
-    return <p className="text-sm text-muted-foreground">No custom units yet.</p>
+    return <p className="text-sm text-muted-foreground">{dict.settings.noCustomUnits}</p>
   }
   return (
     <ul className="flex flex-col gap-2">
@@ -19,6 +21,7 @@ export function UnitsManager({ units }: { units: { id: string; label: string }[]
 }
 
 function UnitRow({ id, label }: { id: string; label: string }) {
+  const { dict, t } = useT()
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -31,7 +34,7 @@ function UnitRow({ id, label }: { id: string; label: string }) {
           variant="ghost"
           size="icon"
           className="size-11"
-          aria-label={`Remove ${label}`}
+          aria-label={t(dict.settings.removeUnitAria, { label })}
           disabled={pending}
           onClick={() =>
             start(async () => {

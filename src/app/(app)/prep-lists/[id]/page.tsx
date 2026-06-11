@@ -12,6 +12,7 @@ import {
   translateListTitle,
   getCustomUnitLabelMap,
 } from '@/lib/translation/apply'
+import { getDictionary, interpolate } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { AddEntryRow } from './_components/add-entry-row'
 import { EntryRow } from './_components/entry-row'
@@ -47,6 +48,7 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
     translateListTitle(list, profile.restaurantId, lang),
   ])
   const customUnits = units.map((u) => u.label)
+  const dict = getDictionary(lang)
 
   // Translated fields the viewer could correct (item name shares the items-page key).
   // Dedupe by key — the same item can appear on multiple entries.
@@ -65,7 +67,7 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
         entityType: 'prep_item',
         entityId: e.prepItemId,
         field: 'name',
-        label: 'Item',
+        label: dict.corrections.fields.item,
         sourceText: e.itemName,
         sourceLanguage: e.itemSourceLanguage,
         currentTranslation: e.itemNameDisplay,
@@ -76,7 +78,7 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
         entityType: 'prep_list_entry',
         entityId: e.id,
         field: 'notes',
-        label: 'Instructions',
+        label: dict.corrections.fields.instructions,
         sourceText: e.notes,
         sourceLanguage: e.notesSourceLanguage,
         currentTranslation: e.notesDisplay,
@@ -87,7 +89,7 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
         entityType: 'prep_list_entry',
         entityId: e.id,
         field: 'cook_note',
-        label: 'Note',
+        label: dict.corrections.fields.note,
         sourceText: e.cookNote,
         sourceLanguage: e.cookNoteSourceLanguage,
         currentTranslation: e.cookNoteDisplay,
@@ -115,12 +117,12 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
             <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
           </div>
           <span className="shrink-0 text-xs text-muted-foreground">
-            {done}/{entries.length} done
+            {interpolate(dict.prepLists.progress, { done, total: entries.length })}
           </span>
         </div>
         {allDone && (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
-            <CheckCircle2Icon className="size-5 shrink-0" /> All done — nice work!
+            <CheckCircle2Icon className="size-5 shrink-0" /> {dict.prepLists.allDone}
           </div>
         )}
       </header>
@@ -143,7 +145,7 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
 
       {entries.length === 0 ? (
         <p className="text-muted-foreground">
-          {canManage ? 'No items on this list yet. Add some above.' : 'No items on this list yet.'}
+          {canManage ? dict.prepLists.noEntriesBuilder : dict.prepLists.noEntriesViewer}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -169,7 +171,7 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
 
       <div className="mt-6">
         <Button render={<Link href="/prep-lists" />} nativeButton={false} variant="outline" className="min-h-[48px] w-full">
-          Done
+          {dict.items.doneClose}
         </Button>
       </div>
     </div>

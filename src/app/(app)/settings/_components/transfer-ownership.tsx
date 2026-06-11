@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Loader2Icon } from 'lucide-react'
 import { transferOwnershipAction } from '../actions'
+import { useT } from '@/lib/i18n/client'
 import { Button } from '@/components/ui/button'
 import {
   SelectField,
@@ -15,17 +16,14 @@ import {
 type Member = { id: string; name: string }
 
 export function TransferOwnership({ members }: { members: Member[] }) {
+  const { dict, t } = useT()
   const [targetId, setTargetId] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pending, start] = useTransition()
 
   if (members.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No other active members to transfer ownership to.
-      </p>
-    )
+    return <p className="text-sm text-muted-foreground">{dict.settings.noOtherMembers}</p>
   }
 
   const targetName = members.find((m) => m.id === targetId)?.name
@@ -46,7 +44,7 @@ export function TransferOwnership({ members }: { members: Member[] }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">New owner</label>
+        <label className="text-sm font-medium text-foreground">{dict.settings.newOwner}</label>
         <SelectField
           value={targetId}
           onValueChange={(v) => {
@@ -56,8 +54,8 @@ export function TransferOwnership({ members }: { members: Member[] }) {
           }}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Choose a team member">
-              {() => targetName ?? 'Choose a team member'}
+            <SelectValue placeholder={dict.settings.chooseMember}>
+              {() => targetName ?? dict.settings.chooseMember}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -74,11 +72,7 @@ export function TransferOwnership({ members }: { members: Member[] }) {
 
       {confirming ? (
         <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
-          <span>
-            This makes <span className="font-medium">{targetName}</span> the owner and demotes
-            you to General Manager. Only the owner can transfer ownership, so you won&apos;t be
-            able to undo this yourself.
-          </span>
+          <span>{t(dict.settings.transferConfirm, { name: targetName ?? '' })}</span>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -87,7 +81,7 @@ export function TransferOwnership({ members }: { members: Member[] }) {
               disabled={pending}
               onClick={doTransfer}
             >
-              {pending ? <Loader2Icon className="size-4 animate-spin" /> : 'Yes, transfer ownership'}
+              {pending ? <Loader2Icon className="size-4 animate-spin" /> : dict.settings.transferYes}
             </Button>
             <Button
               type="button"
@@ -95,7 +89,7 @@ export function TransferOwnership({ members }: { members: Member[] }) {
               className="min-h-[48px]"
               onClick={() => setConfirming(false)}
             >
-              Cancel
+              {dict.common.cancel}
             </Button>
           </div>
         </div>
@@ -107,7 +101,7 @@ export function TransferOwnership({ members }: { members: Member[] }) {
           disabled={!targetId}
           onClick={() => setConfirming(true)}
         >
-          Transfer ownership
+          {dict.settings.transferButton}
         </Button>
       )}
     </div>

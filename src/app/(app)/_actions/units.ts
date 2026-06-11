@@ -6,12 +6,14 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { createRestaurantUnit } from '@/lib/db/queries/restaurant-units'
 import { UNIT_VALUES } from '@/lib/units'
+import { getDictionary, resolveKey } from '@/lib/i18n'
+import { getActionDict } from '@/lib/i18n/server'
 
 const labelSchema = z
   .string()
   .trim()
-  .min(1, 'Enter a unit')
-  .max(20, 'Keep it short')
+  .min(1, 'errors.settings.enterUnit')
+  .max(20, 'errors.settings.unitTooLong')
 
 // Builders (people who manage items/lists) can add a custom unit for the restaurant.
 // Gated on canCreateLists, not management: adding a unit is part of catalog/list
@@ -23,19 +25,20 @@ export async function addCustomUnitAction(label: string): Promise<{ error?: stri
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: 'You must be signed in.' }
+  if (!user) return { error: (await getActionDict()).errors.common.signInRequired }
 
   const profile = await getProfileByUserId(user.id)
   if (!profile?.restaurantId || !profile.isActive || !profile.canCreateLists) {
-    return { error: 'You do not have permission to add units.' }
+    return { error: (await getActionDict(profile?.preferredLanguage)).errors.settings.noPermissionUnits }
   }
 
+  const dict = getDictionary(profile.preferredLanguage)
   const parsed = labelSchema.safeParse(label)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!parsed.success) return { error: resolveKey(dict, parsed.error.issues[0].message) }
 
   // Don't shadow a built-in unit (case-insensitive).
   if ((UNIT_VALUES as readonly string[]).some((u) => u.toLowerCase() === parsed.data.toLowerCase())) {
-    return { error: 'That unit already exists.' }
+    return { error: dict.errors.settings.unitExists }
   }
 
   await createRestaurantUnit({

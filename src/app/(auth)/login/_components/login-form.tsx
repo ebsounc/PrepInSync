@@ -4,11 +4,13 @@ import { useState, useActionState } from 'react'
 import Link from 'next/link'
 import { EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react'
 import { loginAction } from '@/app/(auth)/actions'
+import { useT } from '@/lib/i18n/client'
 import { Field, FieldLabel, FieldError } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
 export function LoginForm() {
+  const { dict } = useT()
   const [state, action, isPending] = useActionState(loginAction, null)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -20,25 +22,25 @@ export function LoginForm() {
         </div>
       )}
       <Field name="email">
-        <FieldLabel>Email</FieldLabel>
+        <FieldLabel>{dict.auth.email}</FieldLabel>
         <Input
           type="email"
           name="email"
           required
-          placeholder="you@restaurant.com"
+          placeholder={dict.auth.emailPlaceholder}
           autoComplete="email"
           autoFocus
         />
         <FieldError />
       </Field>
       <Field name="password">
-        <FieldLabel>Password</FieldLabel>
+        <FieldLabel>{dict.auth.password}</FieldLabel>
         <div className="relative">
           <Input
             type={showPassword ? 'text' : 'password'}
             name="password"
             required
-            placeholder="••••••••"
+            placeholder={dict.auth.passwordPlaceholder}
             autoComplete="current-password"
             className="pr-10"
           />
@@ -47,7 +49,7 @@ export function LoginForm() {
             onClick={() => setShowPassword((v) => !v)}
             className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
             tabIndex={-1}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-label={showPassword ? dict.auth.hidePassword : dict.auth.showPassword}
           >
             {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
           </button>
@@ -55,16 +57,16 @@ export function LoginForm() {
       </Field>
       <div className="flex justify-end">
         <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-          Forgot password?
+          {dict.auth.forgotLink}
         </Link>
       </div>
       <Button type="submit" className="w-full min-h-[52px] text-base" disabled={isPending}>
-        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Sign in'}
+        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.auth.signIn}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{' '}
+        {dict.auth.noAccount}{' '}
         <Link href="/signup" className="text-primary hover:underline">
-          Sign up
+          {dict.auth.signUp}
         </Link>
       </p>
     </form>

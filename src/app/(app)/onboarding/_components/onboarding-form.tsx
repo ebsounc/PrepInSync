@@ -16,10 +16,14 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { TIMEZONE_GROUPS, timezoneLabel } from '@/lib/auth/timezones'
+import { useT } from '@/lib/i18n/client'
 
 export function OnboardingForm() {
+  const { dict } = useT()
   const [state, action, isPending] = useActionState(completeOnboardingAction, null)
   const [timezone, setTimezone] = useState('')
+  const regionLabel = (r: string) =>
+    (dict.timezones.groups as Record<string, string>)[r] ?? r
 
   useEffect(() => {
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -34,33 +38,33 @@ export function OnboardingForm() {
         </div>
       )}
       <Field name="restaurantName">
-        <FieldLabel>Restaurant name</FieldLabel>
+        <FieldLabel>{dict.onboarding.restaurantName}</FieldLabel>
         <Input
           type="text"
           name="restaurantName"
           required
-          placeholder="The Golden Fork"
+          placeholder={dict.onboarding.restaurantNamePlaceholder}
           autoComplete="organization"
           autoFocus
         />
         <FieldError />
       </Field>
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">Timezone</label>
+        <label className="text-sm font-medium text-foreground">{dict.onboarding.timezone}</label>
         <SelectField
           name="timezone"
           value={timezone}
           onValueChange={(value) => { if (value) setTimezone(value) }}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Select your timezone">
-              {() => (timezone ? timezoneLabel(timezone) : 'Select your timezone')}
+            <SelectValue placeholder={dict.onboarding.selectTimezone}>
+              {() => (timezone ? timezoneLabel(timezone) : dict.onboarding.selectTimezone)}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {TIMEZONE_GROUPS.map((group) => (
               <SelectGroup key={group.region}>
-                <SelectGroupLabel>{group.region}</SelectGroupLabel>
+                <SelectGroupLabel>{regionLabel(group.region)}</SelectGroupLabel>
                 {group.zones.map((zone) => (
                   <SelectItem key={zone.value} value={zone.value}>
                     {zone.label}
@@ -78,7 +82,7 @@ export function OnboardingForm() {
         className="w-full min-h-[52px] text-base"
         disabled={isPending || !timezone}
       >
-        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Create my restaurant'}
+        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.onboarding.submit}
       </Button>
     </form>
   )

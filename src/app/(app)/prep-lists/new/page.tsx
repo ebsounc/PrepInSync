@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getRestaurantById } from '@/lib/db/queries/restaurants'
+import { getDictionary, interpolate } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { NewListForm } from './_components/new-list-form'
 
@@ -28,10 +29,13 @@ export default async function NewPrepListPage() {
   const tomorrow = nextDay.toISOString().slice(0, 10)
   const defaultDate = restaurant?.listDefaultDay === 'next_day' ? tomorrow : today
 
+  const lang = profile.preferredLanguage
+  const dict = getDictionary(lang)
   // A friendly hint based on the target day's weekday, e.g. "Friday a.m. prep".
-  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(
-    new Date(`${defaultDate}T00:00:00Z`)
-  )
+  const weekday = new Intl.DateTimeFormat(lang === 'es' ? 'es-ES' : 'en-US', {
+    weekday: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(`${defaultDate}T00:00:00Z`))
   // If the list is for today and it's already afternoon, suggest "p.m." instead of "a.m.".
   const hour = Number(
     new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: timezone }).format(
@@ -42,13 +46,16 @@ export default async function NewPrepListPage() {
 
   return (
     <div className="mx-auto max-w-md p-4 sm:p-6">
-      <h1 className="mb-4 text-2xl font-semibold">New prep list</h1>
+      <h1 className="mb-4 text-2xl font-semibold">{dict.prepLists.newListHeading}</h1>
       <Card>
         <CardHeader>
-          <CardTitle>Details</CardTitle>
+          <CardTitle>{dict.prepLists.detailsCard}</CardTitle>
         </CardHeader>
         <CardContent>
-          <NewListForm defaultDate={defaultDate} titleHint={`e.g. ${weekday} ${period} prep`} />
+          <NewListForm
+            defaultDate={defaultDate}
+            titleHint={interpolate(dict.prepLists.titleHint, { weekday, period })}
+          />
         </CardContent>
       </Card>
     </div>

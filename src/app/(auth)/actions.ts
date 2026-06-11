@@ -5,16 +5,21 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getOrigin } from '@/lib/get-origin'
+import { asLang, resolveKey } from '@/lib/i18n'
+import { setCookieLang, getActionDict } from '@/lib/i18n/server'
+
+// Zod messages carry a dotted dictionary KEY; resolved to the user's language on
+// return (auth pages have no profile, so the dict comes from the lang cookie).
 
 // ---------------------------------------------------------------------------
 // Signup
 // ---------------------------------------------------------------------------
 
 const signupSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  firstName: z.string().min(1, 'errors.auth.firstNameRequired'),
+  lastName: z.string().min(1, 'errors.auth.lastNameRequired'),
+  email: z.string().email('errors.auth.invalidEmail'),
+  password: z.string().min(8, 'errors.auth.passwordMin'),
   language: z.enum(['en', 'es']).default('en'),
 })
 
@@ -33,7 +38,9 @@ export async function signupAction(
   })
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
+    // Honor the language picked on the form (parsed.data is unavailable on failure).
+    const dict = await getActionDict(asLang(formData.get('language') as string | null))
+    return { error: resolveKey(dict, parsed.error.issues[0].message) }
   }
 
   const { firstName, lastName, email, password, language } = parsed.data
@@ -54,9 +61,11 @@ export async function signupAction(
   if (error) {
     // Don't forward Supabase's message — it can reveal whether an email is
     // already registered (user enumeration).
-    return { error: 'Could not create your account. Please try again.' }
+    return { error: (await getActionDict(language)).errors.auth.signupFailed }
   }
 
+  // Reflect their choice on the auth screens immediately (confirm/login).
+  await setCookieLang(language)
   return { success: true }
 }
 
@@ -65,8 +74,8 @@ export async function signupAction(
 // ---------------------------------------------------------------------------
 
 const loginSchema = z.object({
-  email: z.string().email('Enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('errors.auth.invalidEmail'),
+  password: z.string().min(1, 'errors.auth.passwordRequired'),
 })
 
 type LoginState = { error?: string } | null
@@ -81,7 +90,8 @@ export async function loginAction(
   })
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
+    const dict = await getActionDict()
+    return { error: resolveKey(dict, parsed.error.issues[0].message) }
   }
 
   const supabase = await createClient()
@@ -91,10 +101,15 @@ export async function loginAction(
   })
 
   if (error || !data.user) {
-    return { error: 'Invalid email or password.' }
+    return { error: (await getActionDict()).errors.auth.invalidCredentials }
   }
 
   const profile = await getProfileByUserId(data.user.id)
+
+  // Sync the language cookie to their saved preference so logged-out pages match.
+  if (profile) {
+    await setCookieLang(profile.preferredLanguage)
+  }
 
   if (!profile?.restaurantId) {
     redirect('/onboarding')
@@ -118,7 +133,7 @@ export async function logoutAction() {
 // ---------------------------------------------------------------------------
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email('Enter a valid email address'),
+  email: z.string().email('errors.auth.invalidEmail'),
 })
 
 type ForgotPasswordState = { error?: string; success?: boolean } | null
@@ -130,7 +145,8 @@ export async function forgotPasswordAction(
   const parsed = forgotPasswordSchema.safeParse({ email: formData.get('email') })
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
+    const dict = await getActionDict()
+    return { error: resolveKey(dict, parsed.error.issues[0].message) }
   }
 
   const origin = await getOrigin()
@@ -149,7 +165,7 @@ export async function forgotPasswordAction(
 // ---------------------------------------------------------------------------
 
 const resetPasswordSchema = z.object({
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(8, 'errors.auth.passwordMin'),
 })
 
 type ResetPasswordState = { error?: string } | null
@@ -161,14 +177,15 @@ export async function resetPasswordAction(
   const parsed = resetPasswordSchema.safeParse({ password: formData.get('password') })
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
+    const dict = await getActionDict()
+    return { error: resolveKey(dict, parsed.error.issues[0].message) }
   }
 
   const supabase = await createClient()
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password })
 
   if (error) {
-    return { error: 'Could not update password. Your link may have expired.' }
+    return { error: (await getActionDict()).errors.auth.resetFailed }
   }
 
   redirect('/dashboard')

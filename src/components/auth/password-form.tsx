@@ -3,11 +3,13 @@
 import { useRef, useActionState } from 'react'
 import { Loader2Icon } from 'lucide-react'
 import { resetPasswordAction } from '@/app/(auth)/actions'
+import { useT } from '@/lib/i18n/client'
 import { Field, FieldLabel, FieldError } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
-export function PasswordForm({ submitLabel = 'Set password' }: { submitLabel?: string }) {
+export function PasswordForm({ submitLabel }: { submitLabel?: string }) {
+  const { dict } = useT()
   const [state, action, isPending] = useActionState(resetPasswordAction, null)
   const passwordRef = useRef<HTMLInputElement>(null)
 
@@ -19,30 +21,30 @@ export function PasswordForm({ submitLabel = 'Set password' }: { submitLabel?: s
         </div>
       )}
       <Field name="password">
-        <FieldLabel>New password</FieldLabel>
+        <FieldLabel>{dict.auth.newPassword}</FieldLabel>
         <Input
           ref={passwordRef}
           type="password"
           name="password"
           required
           minLength={8}
-          placeholder="Min. 8 characters"
+          placeholder={dict.auth.minChars}
           autoComplete="new-password"
         />
         <FieldError />
       </Field>
       <Field name="confirmPassword">
-        <FieldLabel>Confirm password</FieldLabel>
+        <FieldLabel>{dict.auth.confirmPassword}</FieldLabel>
         <Input
           type="password"
           name="confirmPassword"
           required
-          placeholder="Repeat your password"
+          placeholder={dict.auth.repeatPassword}
           autoComplete="new-password"
           onInput={(e) => {
             e.currentTarget.setCustomValidity(
               e.currentTarget.value !== (passwordRef.current?.value ?? '')
-                ? 'Passwords do not match'
+                ? dict.auth.passwordsNoMatch
                 : ''
             )
           }}
@@ -50,7 +52,7 @@ export function PasswordForm({ submitLabel = 'Set password' }: { submitLabel?: s
         <FieldError />
       </Field>
       <Button type="submit" className="w-full min-h-[52px] text-base" disabled={isPending}>
-        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : submitLabel}
+        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : (submitLabel ?? dict.auth.setPassword)}
       </Button>
     </form>
   )

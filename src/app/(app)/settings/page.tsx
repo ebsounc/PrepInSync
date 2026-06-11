@@ -4,6 +4,7 @@ import { getProfileByUserId, getProfilesByRestaurant } from '@/lib/db/queries/pr
 import { getRestaurantById } from '@/lib/db/queries/restaurants'
 import { getRestaurantUnits } from '@/lib/db/queries/restaurant-units'
 import { isManagementRole } from '@/lib/auth/roles'
+import { getDictionary } from '@/lib/i18n'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { RestaurantForm } from './_components/restaurant-form'
 import { UnitsManager } from './_components/units-manager'
@@ -20,6 +21,7 @@ export default async function SettingsPage() {
   const profile = await getProfileByUserId(user.id)
   if (!profile?.restaurantId) redirect('/onboarding')
 
+  const dict = getDictionary(profile.preferredLanguage)
   // Language is a per-user setting — shown to everyone. The rest of the page is
   // management-only.
   const isManagement = isManagementRole(profile.role)
@@ -38,12 +40,12 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+      <h1 className="text-2xl font-semibold">{dict.settings.heading}</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Language</CardTitle>
-          <CardDescription>The language you read and write prep lists in.</CardDescription>
+          <CardTitle>{dict.settings.languageTitle}</CardTitle>
+          <CardDescription>{dict.settings.languageDesc}</CardDescription>
         </CardHeader>
         <CardContent>
           <LanguageForm current={profile.preferredLanguage} />
@@ -54,8 +56,8 @@ export default async function SettingsPage() {
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Restaurant</CardTitle>
-              <CardDescription>Update your restaurant&apos;s name and timezone.</CardDescription>
+              <CardTitle>{dict.settings.restaurantTitle}</CardTitle>
+              <CardDescription>{dict.settings.restaurantDesc}</CardDescription>
             </CardHeader>
             <CardContent>
               {restaurant && (
@@ -70,10 +72,8 @@ export default async function SettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Custom units</CardTitle>
-              <CardDescription>
-                Units your restaurant added. Create new ones from the item or list forms.
-              </CardDescription>
+              <CardTitle>{dict.settings.customUnitsTitle}</CardTitle>
+              <CardDescription>{dict.settings.customUnitsDesc}</CardDescription>
             </CardHeader>
             <CardContent>
               <UnitsManager units={units.map((u) => ({ id: u.id, label: u.label }))} />
@@ -83,10 +83,8 @@ export default async function SettingsPage() {
           {isOwner && (
             <Card>
               <CardHeader>
-                <CardTitle>Transfer ownership</CardTitle>
-                <CardDescription>
-                  Hand the owner role to another member. You&apos;ll become a General Manager.
-                </CardDescription>
+                <CardTitle>{dict.settings.transferTitle}</CardTitle>
+                <CardDescription>{dict.settings.transferDesc}</CardDescription>
               </CardHeader>
               <CardContent>
                 <TransferOwnership members={transferTargets} />

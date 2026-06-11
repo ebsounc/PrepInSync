@@ -73,6 +73,7 @@ The hard part isn't whether the chef finds it useful. It's adoption — see open
 
 **Bilingual core**
 - Language is a **per-user preference**, not fixed by role. Each user (chef or prep cook) picks the language they read/write in.
+- **The entire UI is bilingual, not just user content.** Two layers: (1) **app chrome** — nav, buttons, labels, headings, dates, role labels, error messages — comes from a static hand-rolled `lib/i18n` dictionary (en/es), no LLM; (2) **user-authored content** — item names, notes, units — is LLM-translated and cached (below). Language is driven by `profiles.preferred_language` when logged in, and a `lang` cookie (default English) on the logged-out auth pages. Architecture in `docs/i18n.md`.
 - Translation is **bidirectional** (English ↔ Spanish in v1). Content has a source language (whatever it was authored in); each viewer sees it in their preferred language.
 - Most input will be English in practice, but a Spanish-speaking chef can author in Spanish and an English-reading prep cook sees it in English. Not everyone in a kitchen is Spanish-speaking.
 - Translate item names, descriptions, units (including restaurant-defined custom units), quantities, recipes, the builder's instructions, and cook notes.

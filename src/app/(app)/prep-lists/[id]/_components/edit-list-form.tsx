@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from 'react'
 import { Loader2Icon, PencilIcon } from 'lucide-react'
 import { updateListAction, type ListActionState } from '../../actions'
 import { formatListDate } from '@/lib/format'
+import { useT } from '@/lib/i18n/client'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ export function EditListForm({
   titleDisplay: string
   canManage: boolean
 }) {
+  const { dict, lang } = useT()
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(list.title)
   const [date, setDate] = useState(list.date)
@@ -46,14 +48,14 @@ export function EditListForm({
               variant="ghost"
               size="icon"
               className="size-9 shrink-0"
-              aria-label="Edit list name and date"
+              aria-label={dict.prepLists.editNameDateAria}
               onClick={open}
             >
               <PencilIcon />
             </Button>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">{formatListDate(list.date)}</p>
+        <p className="text-sm text-muted-foreground">{formatListDate(list.date, lang)}</p>
       </div>
     )
   }
@@ -67,7 +69,7 @@ export function EditListForm({
         </div>
       )}
       <Field name="title">
-        <FieldLabel>Title</FieldLabel>
+        <FieldLabel>{dict.prepLists.title}</FieldLabel>
         <Input
           type="text"
           name="title"
@@ -79,7 +81,7 @@ export function EditListForm({
         />
       </Field>
       <Field name="date">
-        <FieldLabel>Date</FieldLabel>
+        <FieldLabel>{dict.prepLists.date}</FieldLabel>
         <Input
           type="date"
           name="date"
@@ -90,10 +92,10 @@ export function EditListForm({
       </Field>
       <div className="flex gap-2">
         <Button type="submit" className="min-h-[44px]" disabled={isPending}>
-          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.common.save}
         </Button>
         <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => setEditing(false)}>
-          Cancel
+          {dict.common.cancel}
         </Button>
       </div>
     </form>

@@ -3,9 +3,11 @@
 import { useActionState, useState } from 'react'
 import { Loader2Icon } from 'lucide-react'
 import { updateLanguageAction, type SettingsState } from '../actions'
+import { useT } from '@/lib/i18n/client'
 import { Button } from '@/components/ui/button'
 
 export function LanguageForm({ current }: { current: 'en' | 'es' }) {
+  const { dict } = useT()
   const [state, action, isPending] = useActionState<SettingsState, FormData>(
     updateLanguageAction,
     null
@@ -15,7 +17,9 @@ export function LanguageForm({ current }: { current: 'en' | 'es' }) {
   return (
     <form action={action} className="flex flex-col gap-4">
       {state?.success && (
-        <div className="rounded-lg bg-primary/10 px-3 py-2.5 text-sm text-primary">Saved.</div>
+        <div className="rounded-lg bg-primary/10 px-3 py-2.5 text-sm text-primary">
+          {dict.common.saved}
+        </div>
       )}
       {state?.error && (
         <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
@@ -37,7 +41,7 @@ export function LanguageForm({ current }: { current: 'en' | 'es' }) {
                 : 'text-muted-foreground hover:bg-muted/50')
             }
           >
-            {code === 'en' ? 'English' : 'Español'}
+            {code === 'en' ? dict.languages.en : dict.languages.es}
           </button>
         ))}
       </div>
@@ -46,7 +50,7 @@ export function LanguageForm({ current }: { current: 'en' | 'es' }) {
         className="min-h-[48px] text-base"
         disabled={isPending || language === current}
       >
-        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save language'}
+        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.settings.saveLanguage}
       </Button>
     </form>
   )

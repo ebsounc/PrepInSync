@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
+import { getDictionary } from '@/lib/i18n'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { OnboardingForm } from './_components/onboarding-form'
 
@@ -21,18 +22,18 @@ export default async function OnboardingPage() {
     redirect('/dashboard')
   }
 
+  const dict = getDictionary(profile?.preferredLanguage ?? 'en')
+
   return (
     <div className="flex min-h-svh flex-col items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <span className="text-2xl font-bold tracking-tight">KitchenPrep</span>
+          <span className="text-2xl font-bold tracking-tight">{dict.onboarding.brand}</span>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Set up your restaurant</CardTitle>
-            <CardDescription>
-              A few quick details and you&apos;re ready to go.
-            </CardDescription>
+            <CardTitle>{dict.onboarding.title}</CardTitle>
+            <CardDescription>{dict.onboarding.desc}</CardDescription>
           </CardHeader>
           <CardContent>
             <OnboardingForm />

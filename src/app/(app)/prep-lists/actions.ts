@@ -22,29 +22,37 @@ import {
   getEntryAccess,
 } from '@/lib/db/queries/prep-list-entries'
 import { isValidUnit } from '@/lib/db/queries/restaurant-units'
+import { getDictionary, resolveKey, type Dict } from '@/lib/i18n'
+import { getActionDict } from '@/lib/i18n/server'
 
 export type ListActionState = { error?: string; success?: boolean } | null
 
+type MemberCtx = { profile: Profile; restaurantId: string; dict: Dict }
+
 // Any active member of a restaurant (the people who work lists).
-async function requireMember(): Promise<{ error: string } | { profile: Profile; restaurantId: string }> {
+async function requireMember(): Promise<{ error: string } | MemberCtx> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: 'You must be signed in.' }
+  if (!user) return { error: (await getActionDict()).errors.common.signInRequired }
   const profile = await getProfileByUserId(user.id)
   if (!profile || !profile.restaurantId || !profile.isActive) {
-    return { error: 'You do not have access.' }
+    return { error: (await getActionDict(profile?.preferredLanguage)).errors.common.noAccess }
   }
-  return { profile, restaurantId: profile.restaurantId }
+  return {
+    profile,
+    restaurantId: profile.restaurantId,
+    dict: getDictionary(profile.preferredLanguage),
+  }
 }
 
 // A member who is also allowed to build/edit lists.
-async function requireBuilder(): Promise<{ error: string } | { profile: Profile; restaurantId: string }> {
+async function requireBuilder(): Promise<{ error: string } | MemberCtx> {
   const ctx = await requireMember()
   if ('error' in ctx) return ctx
   if (!ctx.profile.canCreateLists) {
-    return { error: 'You do not have permission to edit prep lists.' }
+    return { error: ctx.dict.errors.prepLists.noPermission }
   }
   return ctx
 }
@@ -57,8 +65,8 @@ async function accessibleEntry(entryId: string, restaurantId: string) {
 }
 
 const createListSchema = z.object({
-  title: z.string().trim().min(1, 'Give the list a title').max(120),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick a valid date'),
+  title: z.string().trim().min(1, 'errors.prepLists.titleRequired').max(120),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'errors.prepLists.invalidDate'),
 })
 
 export async function createListAction(
@@ -72,7 +80,7 @@ export async function createListAction(
     title: formData.get('title'),
     date: formData.get('date'),
   })
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!parsed.success) return { error: resolveKey(ctx.dict, parsed.error.issues[0].message) }
 
   const list = await createPrepList({
     restaurantId: ctx.restaurantId,
@@ -93,15 +101,15 @@ export async function updateListAction(
   if ('error' in ctx) return { error: ctx.error }
 
   const listId = z.string().uuid().safeParse(formData.get('listId'))
-  if (!listId.success) return { error: 'Invalid list.' }
+  if (!listId.success) return { error: ctx.dict.errors.prepLists.invalidList }
   const list = await getPrepListById(listId.data, ctx.restaurantId)
-  if (!list) return { error: 'List not found.' }
+  if (!list) return { error: ctx.dict.errors.prepLists.listNotFound }
 
   const parsed = createListSchema.safeParse({
     title: formData.get('title'),
     date: formData.get('date'),
   })
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!parsed.success) return { error: resolveKey(ctx.dict, parsed.error.issues[0].message) }
 
   await updatePrepList(list.id, ctx.restaurantId, {
     title: parsed.data.title,
@@ -114,13 +122,13 @@ export async function updateListAction(
 }
 
 const entrySchema = z.object({
-  prepItemId: z.string().uuid('Pick an item'),
+  prepItemId: z.string().uuid('errors.prepLists.pickItem'),
   quantity: z
     .string()
     .trim()
-    .regex(/^\d*\.?\d+$/, 'Quantity must be a number'),
+    .regex(/^\d*\.?\d+$/, 'errors.prepLists.quantityNumber'),
   // Unit membership (built-in or restaurant custom) is checked in the action.
-  unit: z.string().trim().min(1, 'Pick a unit').max(20),
+  unit: z.string().trim().min(1, 'errors.prepLists.pickUnit').max(20),
   isStarred: z.string().optional(),
   notes: z.string().trim().max(500).optional().or(z.literal('')),
 })
@@ -133,11 +141,11 @@ export async function addEntryAction(
   if ('error' in ctx) return { error: ctx.error }
 
   const listId = z.string().uuid().safeParse(formData.get('prepListId'))
-  if (!listId.success) return { error: 'Invalid list.' }
+  if (!listId.success) return { error: ctx.dict.errors.prepLists.invalidList }
 
   // List and item must both belong to the caller's restaurant.
   const list = await getPrepListById(listId.data, ctx.restaurantId)
-  if (!list) return { error: 'List not found.' }
+  if (!list) return { error: ctx.dict.errors.prepLists.listNotFound }
 
   const parsed = entrySchema.safeParse({
     prepItemId: formData.get('prepItemId'),
@@ -146,13 +154,13 @@ export async function addEntryAction(
     isStarred: formData.get('isStarred') ?? undefined,
     notes: formData.get('notes') ?? undefined,
   })
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!parsed.success) return { error: resolveKey(ctx.dict, parsed.error.issues[0].message) }
   if (!(await isValidUnit(ctx.restaurantId, parsed.data.unit))) {
-    return { error: 'Pick a valid unit.' }
+    return { error: ctx.dict.errors.prepLists.invalidUnit }
   }
 
   const item = await getPrepItemById(parsed.data.prepItemId, ctx.restaurantId)
-  if (!item) return { error: 'Item not found.' }
+  if (!item) return { error: ctx.dict.errors.prepLists.itemNotFound }
 
   await addEntry({
     prepListId: list.id,
@@ -171,8 +179,8 @@ const updateEntrySchema = z.object({
   quantity: z
     .string()
     .trim()
-    .regex(/^\d*\.?\d+$/, 'Quantity must be a number'),
-  unit: z.string().trim().min(1, 'Pick a unit').max(20),
+    .regex(/^\d*\.?\d+$/, 'errors.prepLists.quantityNumber'),
+  unit: z.string().trim().min(1, 'errors.prepLists.pickUnit').max(20),
   isStarred: z.string().optional(),
   notes: z.string().trim().max(500).optional().or(z.literal('')),
 })
@@ -185,9 +193,9 @@ export async function updateEntryAction(
   if ('error' in ctx) return { error: ctx.error }
 
   const entryId = z.string().uuid().safeParse(formData.get('entryId'))
-  if (!entryId.success) return { error: 'Invalid entry.' }
+  if (!entryId.success) return { error: ctx.dict.errors.prepLists.invalidEntry }
   const entry = await accessibleEntry(entryId.data, ctx.restaurantId)
-  if (!entry) return { error: 'Entry not found.' }
+  if (!entry) return { error: ctx.dict.errors.prepLists.entryNotFound }
 
   const parsed = updateEntrySchema.safeParse({
     quantity: formData.get('quantity'),
@@ -195,9 +203,9 @@ export async function updateEntryAction(
     isStarred: formData.get('isStarred') ?? undefined,
     notes: formData.get('notes') ?? undefined,
   })
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!parsed.success) return { error: resolveKey(ctx.dict, parsed.error.issues[0].message) }
   if (!(await isValidUnit(ctx.restaurantId, parsed.data.unit))) {
-    return { error: 'Pick a valid unit.' }
+    return { error: ctx.dict.errors.prepLists.invalidUnit }
   }
 
   await updateEntry(entry.id, {
@@ -215,7 +223,7 @@ export async function setStarAction(entryId: string, value: boolean): Promise<{ 
   const ctx = await requireBuilder()
   if ('error' in ctx) return { error: ctx.error }
   const entry = await accessibleEntry(entryId, ctx.restaurantId)
-  if (!entry) return { error: 'Entry not found.' }
+  if (!entry) return { error: ctx.dict.errors.prepLists.entryNotFound }
   await setEntryStarred(entry.id, value)
   revalidatePath(`/prep-lists/${entry.prepListId}`)
   return {}
@@ -225,7 +233,7 @@ export async function removeEntryAction(entryId: string): Promise<{ error?: stri
   const ctx = await requireBuilder()
   if ('error' in ctx) return { error: ctx.error }
   const entry = await accessibleEntry(entryId, ctx.restaurantId)
-  if (!entry) return { error: 'Entry not found.' }
+  if (!entry) return { error: ctx.dict.errors.prepLists.entryNotFound }
   await removeEntry(entry.id)
   revalidatePath(`/prep-lists/${entry.prepListId}`)
   return {}
@@ -237,7 +245,7 @@ export async function deleteListAction(listId: string): Promise<{ error?: string
   const ctx = await requireBuilder()
   if ('error' in ctx) return { error: ctx.error }
   const list = await getPrepListById(listId, ctx.restaurantId)
-  if (!list) return { error: 'List not found.' }
+  if (!list) return { error: ctx.dict.errors.prepLists.listNotFound }
   await deletePrepList(list.id, ctx.restaurantId)
   revalidatePath('/prep-lists')
   return {}
@@ -249,7 +257,7 @@ export async function toggleCompletionAction(entryId: string): Promise<{ error?:
   const ctx = await requireMember()
   if ('error' in ctx) return { error: ctx.error }
   const entry = await accessibleEntry(entryId, ctx.restaurantId)
-  if (!entry) return { error: 'Entry not found.' }
+  if (!entry) return { error: ctx.dict.errors.prepLists.entryNotFound }
   await toggleEntryCompletion(entry.id, !entry.completed, ctx.profile.id)
   revalidatePath(`/prep-lists/${entry.prepListId}`)
   return {}
@@ -261,7 +269,7 @@ export async function saveCookNoteAction(entryId: string, note: string): Promise
   const ctx = await requireMember()
   if ('error' in ctx) return { error: ctx.error }
   const entry = await accessibleEntry(entryId, ctx.restaurantId)
-  if (!entry) return { error: 'Entry not found.' }
+  if (!entry) return { error: ctx.dict.errors.prepLists.entryNotFound }
   const trimmed = note.trim().slice(0, 500)
   await setEntryCookNote(
     entry.id,

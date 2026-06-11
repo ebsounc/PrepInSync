@@ -16,6 +16,7 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { formatQuantity } from '@/lib/units'
+import { useT } from '@/lib/i18n/client'
 import { cn } from '@/lib/utils'
 
 export type BuilderItem = {
@@ -36,13 +37,14 @@ export function AddEntryRow({
   customUnits: string[]
   existingItemIds: string[]
 }) {
+  const { dict } = useT()
   // Collapse to a button once the list has entries; open inline when empty.
   const [expanded, setExpanded] = useState(existingItemIds.length === 0)
 
   if (items.length === 0) {
     return (
       <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-        Add items to your catalog first, then build the list.
+        {dict.prepLists.addItemsFirst}
       </p>
     )
   }
@@ -55,7 +57,7 @@ export function AddEntryRow({
         className="min-h-[48px] w-full justify-start text-base"
         onClick={() => setExpanded(true)}
       >
-        <PlusIcon /> Add an item
+        <PlusIcon /> {dict.items.addItem}
       </Button>
     )
   }
@@ -84,6 +86,7 @@ function AddEntryForm({
   existingItemIds: string[]
   onClose?: () => void
 }) {
+  const { dict, t } = useT()
   const [state, action, isPending] = useActionState<ListActionState, FormData>(addEntryAction, null)
   const formRef = useRef<HTMLFormElement>(null)
   const [itemId, setItemId] = useState('')
@@ -139,12 +142,14 @@ function AddEntryForm({
         </div>
       )}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">Item</label>
+        <label className="text-sm font-medium text-foreground">{dict.prepLists.item}</label>
         <SelectField value={itemId} onValueChange={(v) => handleItemChange(v ?? '')}>
           <SelectTrigger>
             {/* base-ui passes the raw id to the render fn; we show the item name
                 instead (the function child overrides the placeholder prop). */}
-            <SelectValue placeholder="Select item">{() => selectedName ?? 'Select item'}</SelectValue>
+            <SelectValue placeholder={dict.prepLists.selectItem}>
+              {() => selectedName ?? dict.prepLists.selectItem}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {items.map((i) => (
@@ -157,18 +162,18 @@ function AddEntryForm({
       </div>
       <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Qty</label>
+          <label className="text-sm font-medium text-foreground">{dict.prepLists.qty}</label>
           <Input
             type="text"
             inputMode="decimal"
             name="quantity"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            placeholder="2"
+            placeholder={dict.prepLists.qtyPlaceholder}
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Unit</label>
+          <label className="text-sm font-medium text-foreground">{dict.prepLists.unit}</label>
           <UnitSelect
             name="unit"
             value={unit}
@@ -182,7 +187,7 @@ function AddEntryForm({
           variant="outline"
           size="icon"
           className="size-11"
-          aria-label="Mark as priority"
+          aria-label={dict.prepLists.markPriority}
           aria-pressed={starred}
           onClick={() => setStarred((s) => !s)}
         >
@@ -190,12 +195,14 @@ function AddEntryForm({
         </Button>
       </div>
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">Instructions for cook (optional)</label>
+        <label className="text-sm font-medium text-foreground">
+          {dict.prepLists.instructionsField}
+        </label>
         <Textarea
           name="notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="e.g. dice fine, 1/4 inch"
+          placeholder={dict.prepLists.instructionsPlaceholder}
           maxLength={500}
           spellCheck
         />
@@ -203,8 +210,8 @@ function AddEntryForm({
 
       {confirmDup ? (
         <div className="flex flex-col gap-2 rounded-lg bg-muted p-3 text-sm">
-          <span>
-            <span className="font-medium">{selectedName}</span> is already on the list. Add it again?
+          <span className="font-medium">
+            {t(dict.prepLists.alreadyOnList, { name: selectedName ?? '' })}
           </span>
           <div className="flex gap-2">
             <Button
@@ -213,7 +220,7 @@ function AddEntryForm({
               disabled={isPending}
               onClick={() => formRef.current?.requestSubmit()}
             >
-              {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Add again'}
+              {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.prepLists.addAgain}
             </Button>
             <Button
               type="button"
@@ -221,7 +228,7 @@ function AddEntryForm({
               className="min-h-[48px]"
               onClick={() => setConfirmDup(false)}
             >
-              Cancel
+              {dict.common.cancel}
             </Button>
           </div>
         </div>
@@ -232,13 +239,13 @@ function AddEntryForm({
               <Loader2Icon className="size-4 animate-spin" />
             ) : (
               <>
-                <PlusIcon /> Add to list
+                <PlusIcon /> {dict.prepLists.addToList}
               </>
             )}
           </Button>
           {onClose && (
             <Button type="button" variant="outline" className="min-h-[48px]" onClick={onClose}>
-              Close
+              {dict.common.close}
             </Button>
           )}
         </div>

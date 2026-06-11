@@ -7,9 +7,11 @@ import { cn } from '@/lib/utils'
 export function PrepListCard({
   list,
   entries,
+  lang,
 }: {
   list: PrepListDisplay
   entries?: PrepListEntryDisplay[]
+  lang: 'en' | 'es'
 }) {
   const pct = list.total > 0 ? Math.round((list.done / list.total) * 100) : 0
   const complete = list.total > 0 && list.done === list.total
@@ -23,7 +25,7 @@ export function PrepListCard({
           {complete && <CheckCircle2Icon className="size-4 shrink-0 text-primary" />}
           <span className="truncate">{list.titleDisplay}</span>
         </span>
-        <span className="shrink-0 text-sm text-muted-foreground">{formatListDate(list.date)}</span>
+        <span className="shrink-0 text-sm text-muted-foreground">{formatListDate(list.date, lang)}</span>
       </div>
       <div className="mt-2 flex items-center gap-2">
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">

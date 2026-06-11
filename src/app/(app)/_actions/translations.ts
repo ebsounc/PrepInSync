@@ -8,6 +8,8 @@ import {
   createGlossaryOverride,
   deleteTranslationsFor,
 } from '@/lib/db/queries/glossary'
+import { getDictionary } from '@/lib/i18n'
+import { getActionDict } from '@/lib/i18n/server'
 
 // Fields a member can correct the translation of. Keep in sync with the entity
 // types used by the translation cache.
@@ -18,7 +20,7 @@ const overrideSchema = z.object({
   sourceText: z.string().trim().min(1).max(500),
   sourceLanguage: z.enum(['en', 'es']),
   targetLanguage: z.enum(['en', 'es']),
-  preferredTranslation: z.string().trim().min(1, 'Enter a translation').max(500),
+  preferredTranslation: z.string().trim().min(1).max(500),
 })
 
 // Any active member can correct a translation. The correction is stored as a
@@ -38,18 +40,19 @@ export async function submitTranslationOverrideAction(input: {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: 'You must be signed in.' }
+  if (!user) return { error: (await getActionDict()).errors.common.signInRequired }
 
   const profile = await getProfileByUserId(user.id)
   if (!profile?.restaurantId || !profile.isActive) {
-    return { error: 'You do not have access.' }
+    return { error: (await getActionDict(profile?.preferredLanguage)).errors.common.noAccess }
   }
 
+  const dict = getDictionary(profile.preferredLanguage)
   const parsed = overrideSchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!parsed.success) return { error: dict.errors.translations.invalid }
   const d = parsed.data
   if (d.sourceLanguage === d.targetLanguage) {
-    return { error: 'Nothing to translate.' }
+    return { error: dict.errors.translations.nothingToTranslate }
   }
 
   await createGlossaryOverride({

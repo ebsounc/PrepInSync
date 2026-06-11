@@ -12,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { UNITS } from '@/lib/units'
+import { useT } from '@/lib/i18n/client'
 
 const ADD_SENTINEL = '__add_unit__'
 
@@ -23,7 +24,7 @@ export function UnitSelect({
   name,
   value,
   onValueChange,
-  placeholder = 'Unit',
+  placeholder,
   customUnits = [],
   clearable = false,
   onAddUnit,
@@ -36,6 +37,8 @@ export function UnitSelect({
   clearable?: boolean
   onAddUnit?: (label: string) => Promise<{ error?: string }>
 }) {
+  const { dict } = useT()
+  const placeholderText = placeholder ?? dict.unitSelect.placeholder
   // Units added during this session show immediately without waiting on a refetch.
   const [sessionUnits, setSessionUnits] = useState<string[]>([])
   const [adding, setAdding] = useState(false)
@@ -75,7 +78,7 @@ export function UnitSelect({
       <div className="flex items-center gap-1">
         <SelectField value={value} onValueChange={(v) => handleChange(v ?? '')}>
           <SelectTrigger>
-            <SelectValue placeholder={placeholder} />
+            <SelectValue placeholder={placeholderText} />
           </SelectTrigger>
           <SelectContent>
             {UNITS.map((u) => (
@@ -91,7 +94,7 @@ export function UnitSelect({
             {onAddUnit && (
               <SelectItem value={ADD_SENTINEL}>
                 <span className="flex items-center gap-1.5 text-primary">
-                  <PlusIcon className="size-4" /> Add a unit…
+                  <PlusIcon className="size-4" /> {dict.unitSelect.addUnit}
                 </span>
               </SelectItem>
             )}
@@ -103,7 +106,7 @@ export function UnitSelect({
             variant="ghost"
             size="icon"
             className="size-11 shrink-0"
-            aria-label="Clear unit"
+            aria-label={dict.unitSelect.clearUnit}
             onClick={() => onValueChange('')}
           >
             <XIcon />
@@ -118,7 +121,7 @@ export function UnitSelect({
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="e.g. lexan"
+              placeholder={dict.unitSelect.customPlaceholder}
               maxLength={20}
               autoFocus
               onKeyDown={(e) => {
@@ -132,7 +135,7 @@ export function UnitSelect({
               type="button"
               size="icon"
               className="size-11 shrink-0"
-              aria-label="Save unit"
+              aria-label={dict.unitSelect.saveUnit}
               disabled={pending || !draft.trim()}
               onClick={submitNewUnit}
             >
@@ -143,7 +146,7 @@ export function UnitSelect({
               variant="ghost"
               size="icon"
               className="size-11 shrink-0"
-              aria-label="Cancel"
+              aria-label={dict.common.cancel}
               onClick={() => {
                 setAdding(false)
                 setDraft('')

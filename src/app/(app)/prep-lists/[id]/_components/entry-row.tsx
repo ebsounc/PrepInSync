@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { UnitSelect } from '@/components/unit-select'
+import { useT } from '@/lib/i18n/client'
 import { cn } from '@/lib/utils'
 
 export function EntryRow({
@@ -74,6 +75,7 @@ function DisplayEntry({
   currentUserId: string
   onEdit: () => void
 }) {
+  const { dict, t } = useT()
   const [togglePending, startToggle] = useTransition()
   const displayUnit = customUnitLabels[entry.unit] ?? entry.unit
 
@@ -120,13 +122,16 @@ function DisplayEntry({
       </div>
 
       {entry.completed && entry.completedByName && (
-        <p className="px-3 pb-1 text-xs text-muted-foreground">Done by {entry.completedByName}</p>
+        <p className="px-3 pb-1 text-xs text-muted-foreground">
+          {t(dict.prepLists.doneByName, { name: entry.completedByName })}
+        </p>
       )}
 
       {/* Instructions: the builder's note, read-only here (edited via Edit). */}
       {entry.notesDisplay && (
         <p className="px-3 pb-1 text-sm">
-          <span className="text-muted-foreground">Instructions:</span> {entry.notesDisplay}
+          <span className="text-muted-foreground">{dict.prepLists.instructionsLabel}</span>{' '}
+          {entry.notesDisplay}
         </p>
       )}
 
@@ -135,7 +140,7 @@ function DisplayEntry({
       {canManage && (
         <div className="flex gap-1 border-t px-2 py-1">
           <Button type="button" variant="ghost" size="sm" className="min-h-[48px]" onClick={onEdit}>
-            <PencilIcon /> Edit
+            <PencilIcon /> {dict.common.edit}
           </Button>
           <RemoveEntryButton id={entry.id} />
         </div>
@@ -145,6 +150,7 @@ function DisplayEntry({
 }
 
 function StarToggle({ entry }: { entry: PrepListEntryDisplay }) {
+  const { dict } = useT()
   const [pending, start] = useTransition()
   return (
     <Button
@@ -152,7 +158,7 @@ function StarToggle({ entry }: { entry: PrepListEntryDisplay }) {
       variant="ghost"
       size="icon"
       className="size-11"
-      aria-label={entry.isStarred ? 'Remove priority' : 'Mark as priority'}
+      aria-label={entry.isStarred ? dict.prepLists.removePriority : dict.prepLists.markPriority}
       aria-pressed={entry.isStarred}
       disabled={pending}
       onClick={() => start(() => setStarAction(entry.id, !entry.isStarred).then(() => {}))}
@@ -163,6 +169,7 @@ function StarToggle({ entry }: { entry: PrepListEntryDisplay }) {
 }
 
 function RemoveEntryButton({ id }: { id: string }) {
+  const { dict } = useT()
   const [pending, start] = useTransition()
   return (
     <Button
@@ -177,7 +184,7 @@ function RemoveEntryButton({ id }: { id: string }) {
         <Loader2Icon className="size-4 animate-spin" />
       ) : (
         <>
-          <Trash2Icon /> Remove
+          <Trash2Icon /> {dict.common.remove}
         </>
       )}
     </Button>
@@ -193,6 +200,7 @@ function CookNoteSection({
   entry: PrepListEntryDisplay
   currentUserId: string
 }) {
+  const { dict, t } = useT()
   const [open, setOpen] = useState(false)
   // Editor seeds from the viewer's-language text (cookNoteDisplay): you edit what
   // you read. On save, saveCookNoteAction re-stamps cook_note_by to the editor, so
@@ -204,10 +212,10 @@ function CookNoteSection({
   // "Your note" to the author; "<Name>'s note" to everyone else.
   const noteLabel =
     entry.cookNoteById === currentUserId
-      ? 'Your note'
+      ? dict.prepLists.yourNote
       : entry.cookNoteByName
-        ? `${entry.cookNoteByName}'s note`
-        : 'Note'
+        ? t(dict.prepLists.othersNote, { name: entry.cookNoteByName })
+        : dict.prepLists.note
 
   if (!open) {
     return (
@@ -234,7 +242,7 @@ function CookNoteSection({
               setOpen(true)
             }}
           >
-            <MessageSquareIcon /> Add your own note
+            <MessageSquareIcon /> {dict.prepLists.addYourNote}
           </Button>
         )}
       </div>
@@ -246,7 +254,7 @@ function CookNoteSection({
       <Textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="e.g. only half a case left"
+        placeholder={dict.prepLists.cookNotePlaceholder}
         maxLength={500}
         spellCheck
         autoFocus
@@ -259,7 +267,7 @@ function CookNoteSection({
           disabled={pending}
           onClick={() => start(() => saveCookNoteAction(entry.id, value).then(() => setOpen(false)))}
         >
-          {pending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save note'}
+          {pending ? <Loader2Icon className="size-4 animate-spin" /> : dict.prepLists.saveNote}
         </Button>
         <Button
           type="button"
@@ -268,7 +276,7 @@ function CookNoteSection({
           className="min-h-[48px]"
           onClick={() => setOpen(false)}
         >
-          Cancel
+          {dict.common.cancel}
         </Button>
       </div>
     </div>
@@ -284,6 +292,7 @@ function EditEntryForm({
   customUnits: string[]
   onDone: () => void
 }) {
+  const { dict } = useT()
   const [state, action, isPending] = useActionState<ListActionState, FormData>(
     updateEntryAction,
     null
@@ -308,7 +317,7 @@ function EditEntryForm({
         <div className="font-medium">{entry.itemName}</div>
         <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-foreground">Qty</label>
+            <label className="text-sm font-medium text-foreground">{dict.prepLists.qty}</label>
             <Input
               type="text"
               inputMode="decimal"
@@ -317,7 +326,7 @@ function EditEntryForm({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-foreground">Unit</label>
+            <label className="text-sm font-medium text-foreground">{dict.prepLists.unit}</label>
             <UnitSelect
               name="unit"
               value={unit}
@@ -331,7 +340,7 @@ function EditEntryForm({
             variant="outline"
             size="icon"
             className="size-11"
-            aria-label="Mark as priority"
+            aria-label={dict.prepLists.markPriority}
             aria-pressed={starred}
             onClick={() => setStarred((s) => !s)}
           >
@@ -339,21 +348,23 @@ function EditEntryForm({
           </Button>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Instructions for cook (optional)</label>
+          <label className="text-sm font-medium text-foreground">
+            {dict.prepLists.instructionsField}
+          </label>
           <Textarea
             name="notes"
             defaultValue={entry.notes ?? ''}
-            placeholder="e.g. dice fine, 1/4 inch"
+            placeholder={dict.prepLists.instructionsPlaceholder}
             maxLength={500}
             spellCheck
           />
         </div>
         <div className="flex gap-2">
           <Button type="submit" className="min-h-[48px] flex-1" disabled={isPending || !unit}>
-            {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+            {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.common.save}
           </Button>
           <Button type="button" variant="outline" className="min-h-[48px]" onClick={onDone}>
-            Cancel
+            {dict.common.cancel}
           </Button>
         </div>
       </form>

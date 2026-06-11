@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { LanguagesIcon, Loader2Icon } from 'lucide-react'
 import { submitTranslationOverrideAction } from '@/app/(app)/_actions/translations'
+import { useT } from '@/lib/i18n/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -26,6 +27,7 @@ export function TranslationCorrections({
   items: Correctable[]
   targetLanguage: 'en' | 'es'
 }) {
+  const { dict, t } = useT()
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(0)
   const [value, setValue] = useState('')
@@ -53,7 +55,7 @@ export function TranslationCorrections({
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <LanguagesIcon className="size-4" />
-        Fix a translation
+        {dict.corrections.fix}
       </button>
     )
   }
@@ -63,11 +65,11 @@ export function TranslationCorrections({
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-3">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <LanguagesIcon className="size-4" /> Fix a translation
+        <LanguagesIcon className="size-4" /> {dict.corrections.fix}
       </div>
       {done && (
         <div className="rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
-          Saved. It&apos;ll update across the app.
+          {dict.corrections.saved}
         </div>
       )}
       {error && (
@@ -76,7 +78,7 @@ export function TranslationCorrections({
         </div>
       )}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">Which one reads wrong?</label>
+        <label className="text-sm font-medium text-foreground">{dict.corrections.whichWrong}</label>
         <select
           value={selected}
           onChange={(e) => choose(Number(e.target.value))}
@@ -91,12 +93,14 @@ export function TranslationCorrections({
       </div>
       {current && (
         <p className="text-xs text-muted-foreground">
-          Original ({current.sourceLanguage.toUpperCase()}):{' '}
-          <span className="text-foreground">{current.sourceText}</span>
+          {t(dict.corrections.original, {
+            lang: current.sourceLanguage.toUpperCase(),
+            text: current.sourceText,
+          })}
         </p>
       )}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">Correct translation</label>
+        <label className="text-sm font-medium text-foreground">{dict.corrections.correctTranslation}</label>
         <Input
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -129,7 +133,7 @@ export function TranslationCorrections({
             })
           }
         >
-          {pending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save correction'}
+          {pending ? <Loader2Icon className="size-4 animate-spin" /> : dict.corrections.saveCorrection}
         </Button>
         <Button
           type="button"
@@ -137,7 +141,7 @@ export function TranslationCorrections({
           className="min-h-[44px]"
           onClick={() => setOpen(false)}
         >
-          Close
+          {dict.common.close}
         </Button>
       </div>
     </div>

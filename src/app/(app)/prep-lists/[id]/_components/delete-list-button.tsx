@@ -4,10 +4,12 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2Icon, Trash2Icon } from 'lucide-react'
 import { deleteListAction } from '../../actions'
+import { useT } from '@/lib/i18n/client'
 import { Button } from '@/components/ui/button'
 
 export function DeleteListButton({ listId }: { listId: string }) {
   const router = useRouter()
+  const { dict } = useT()
   const [pending, start] = useTransition()
   const [confirm, setConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -19,7 +21,7 @@ export function DeleteListButton({ listId }: { listId: string }) {
         variant="ghost"
         size="icon"
         className="size-11"
-        aria-label="Delete list"
+        aria-label={dict.prepLists.deleteListAria}
         onClick={() => setConfirm(true)}
       >
         <Trash2Icon className="text-destructive" />
@@ -29,7 +31,7 @@ export function DeleteListButton({ listId }: { listId: string }) {
 
   return (
     <div className="flex shrink-0 flex-col items-end gap-1">
-      <span className="text-sm text-muted-foreground">Delete this list? This can&apos;t be undone.</span>
+      <span className="text-sm text-muted-foreground">{dict.prepLists.deleteConfirm}</span>
       <div className="flex items-center gap-1">
         <Button
           type="button"
@@ -48,7 +50,7 @@ export function DeleteListButton({ listId }: { listId: string }) {
             })
           }
         >
-          {pending ? <Loader2Icon className="size-4 animate-spin" /> : 'Delete' }
+          {pending ? <Loader2Icon className="size-4 animate-spin" /> : dict.common.delete}
         </Button>
         <Button
           type="button"
@@ -57,7 +59,7 @@ export function DeleteListButton({ listId }: { listId: string }) {
           className="min-h-[44px]"
           onClick={() => setConfirm(false)}
         >
-          Cancel
+          {dict.common.cancel}
         </Button>
       </div>
       {error && <span className="text-xs text-destructive">{error}</span>}

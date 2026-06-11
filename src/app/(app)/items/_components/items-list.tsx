@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { UnitSelect } from '@/components/unit-select'
 import { TranslationCorrections, type Correctable } from '@/components/translation-corrections'
+import { useT } from '@/lib/i18n/client'
 
 export function ItemsList({
   items,
@@ -31,6 +32,7 @@ export function ItemsList({
   customUnitLabels: Record<string, string>
   lang: 'en' | 'es'
 }) {
+  const { dict } = useT()
   // Open inline when the catalog is empty; otherwise collapse to a button so the
   // list isn't pushed down by the form (and we avoid deeply nested dropdowns).
   const [expanded, setExpanded] = useState(items.length === 0)
@@ -43,7 +45,7 @@ export function ItemsList({
       entityType: 'prep_item',
       entityId: item.id,
       field: 'name',
-      label: 'Item',
+      label: dict.corrections.fields.item,
       sourceText: item.name,
       sourceLanguage: item.sourceLanguage,
       currentTranslation: item.nameDisplay,
@@ -53,7 +55,7 @@ export function ItemsList({
         entityType: 'prep_item',
         entityId: item.id,
         field: 'description',
-        label: 'Description',
+        label: dict.corrections.fields.description,
         sourceText: item.description,
         sourceLanguage: item.sourceLanguage,
         currentTranslation: item.descriptionDisplay,
@@ -76,12 +78,12 @@ export function ItemsList({
             className="min-h-[48px] justify-start text-base"
             onClick={() => setExpanded(true)}
           >
-            <PlusIcon /> Add an item
+            <PlusIcon /> {dict.items.addItem}
           </Button>
         ))}
       {items.length === 0 ? (
         <p className="text-muted-foreground">
-          {canManage ? 'No items yet. Add your first prep item above.' : 'No items yet.'}
+          {canManage ? dict.items.noItemsBuilder : dict.items.noItemsViewer}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -133,6 +135,7 @@ function AmountFields({
   placeholder: string
   customUnits: string[]
 }) {
+  const { dict } = useT()
   return (
     <div className="grid grid-cols-2 gap-3">
       <Field name={quantityName}>
@@ -147,7 +150,7 @@ function AmountFields({
         />
       </Field>
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">Unit</label>
+        <label className="text-sm font-medium text-foreground">{dict.prepLists.unit}</label>
         <UnitSelect
           name={unitName}
           value={unit}
@@ -162,6 +165,7 @@ function AmountFields({
 }
 
 function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?: () => void }) {
+  const { dict } = useT()
   const [state, action, isPending] = useActionState<ItemActionState, FormData>(createItemAction, null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -185,52 +189,52 @@ function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?
 
   return (
     <form action={action} className="flex flex-col gap-3 rounded-xl border p-4">
-      <h2 className="font-medium">Add an item</h2>
+      <h2 className="font-medium">{dict.items.addItemHeading}</h2>
       {state?.error && <ErrorBanner message={state.error} />}
       <Field name="name">
-        <FieldLabel>Name</FieldLabel>
+        <FieldLabel>{dict.items.name}</FieldLabel>
         <Input
           type="text"
           name="name"
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Diced onions"
+          placeholder={dict.items.namePlaceholder}
           spellCheck
         />
       </Field>
       <Field name="description">
-        <FieldLabel>Description (optional)</FieldLabel>
+        <FieldLabel>{dict.items.description}</FieldLabel>
         <Textarea
           name="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="e.g. stored in the walk-in, dice fine"
+          placeholder={dict.items.descriptionPlaceholder}
           maxLength={500}
           spellCheck
         />
       </Field>
       <AmountFields
-        label="Default amount (optional)"
+        label={dict.items.defaultAmount}
         quantityName="defaultQuantity"
         unitName="defaultUnit"
         quantity={defaultQty}
         onQuantity={setDefaultQty}
         unit={defaultUnit}
         onUnit={setDefaultUnit}
-        placeholder="2"
+        placeholder={dict.items.defaultAmountPlaceholder}
         customUnits={customUnits}
       />
       {showPar ? (
         <AmountFields
-          label="Par level (optional)"
+          label={dict.items.parLevel}
           quantityName="parQuantity"
           unitName="parUnit"
           quantity={parQty}
           onQuantity={setParQty}
           unit={parUnit}
           onUnit={setParUnit}
-          placeholder="6"
+          placeholder={dict.items.parLevelPlaceholder}
           customUnits={customUnits}
         />
       ) : (
@@ -241,16 +245,16 @@ function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?
           className="min-h-[44px] self-start"
           onClick={() => setShowPar(true)}
         >
-          <PlusIcon /> Add par level
+          <PlusIcon /> {dict.items.addParLevel}
         </Button>
       )}
       <div className="flex gap-2">
         <Button type="submit" className="min-h-[48px] flex-1 text-base" disabled={isPending}>
-          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Add item'}
+          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.items.addItemSubmit}
         </Button>
         {onClose && (
           <Button type="button" variant="outline" className="min-h-[48px]" onClick={onClose}>
-            Done
+            {dict.items.doneClose}
           </Button>
         )}
       </div>
@@ -271,6 +275,7 @@ function ItemRow({
   customUnitLabels: Record<string, string>
   lang: 'en' | 'es'
 }) {
+  const { dict, t } = useT()
   const [editing, setEditing] = useState(false)
   // Swap a custom-unit label for its translation; built-ins pass through and get
   // translated by formatAmount via lang.
@@ -289,12 +294,12 @@ function ItemRow({
         )}
         {item.defaultQuantity && (
           <div className="text-sm text-muted-foreground">
-            Default: {formatAmount(item.defaultQuantity, unitLabel(item.defaultUnit), lang)}
+            {dict.items.defaultLabel}: {formatAmount(item.defaultQuantity, unitLabel(item.defaultUnit), lang)}
           </div>
         )}
         {item.parQuantity && (
           <div className="text-sm text-muted-foreground">
-            Par: {formatAmount(item.parQuantity, unitLabel(item.parUnit), lang)}
+            {dict.items.parLabel}: {formatAmount(item.parQuantity, unitLabel(item.parUnit), lang)}
           </div>
         )}
       </div>
@@ -305,7 +310,7 @@ function ItemRow({
             variant="ghost"
             size="icon"
             className="size-11"
-            aria-label={`Edit ${item.name}`}
+            aria-label={t(dict.items.editAria, { name: item.name })}
             onClick={() => setEditing(true)}
           >
             <PencilIcon />
@@ -318,6 +323,7 @@ function ItemRow({
 }
 
 function DeleteItemButton({ id, name }: { id: string; name: string }) {
+  const { dict, t } = useT()
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -328,7 +334,7 @@ function DeleteItemButton({ id, name }: { id: string; name: string }) {
         variant="ghost"
         size="icon"
         className="size-11"
-        aria-label={`Delete ${name}`}
+        aria-label={t(dict.items.deleteAria, { name })}
         disabled={pending}
         onClick={() =>
           start(async () => {
@@ -353,6 +359,7 @@ function EditItemForm({
   customUnits: string[]
   onDone: () => void
 }) {
+  const { dict } = useT()
   const [state, action, isPending] = useActionState<ItemActionState, FormData>(updateItemAction, null)
   const num = (v: string | null) => (v ? Number(v).toString() : '')
   const [name, setName] = useState(item.name)
@@ -372,7 +379,7 @@ function EditItemForm({
       <input type="hidden" name="id" value={item.id} />
       {state?.error && <ErrorBanner message={state.error} />}
       <Field name="name">
-        <FieldLabel>Name</FieldLabel>
+        <FieldLabel>{dict.items.name}</FieldLabel>
         <Input
           type="text"
           name="name"
@@ -383,37 +390,37 @@ function EditItemForm({
         />
       </Field>
       <Field name="description">
-        <FieldLabel>Description (optional)</FieldLabel>
+        <FieldLabel>{dict.items.description}</FieldLabel>
         <Textarea
           name="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="e.g. stored in the walk-in, dice fine"
+          placeholder={dict.items.descriptionPlaceholder}
           maxLength={500}
           spellCheck
         />
       </Field>
       <AmountFields
-        label="Default amount (optional)"
+        label={dict.items.defaultAmount}
         quantityName="defaultQuantity"
         unitName="defaultUnit"
         quantity={defaultQty}
         onQuantity={setDefaultQty}
         unit={defaultUnit}
         onUnit={setDefaultUnit}
-        placeholder="2"
+        placeholder={dict.items.defaultAmountPlaceholder}
         customUnits={customUnits}
       />
       {showPar ? (
         <AmountFields
-          label="Par level (optional)"
+          label={dict.items.parLevel}
           quantityName="parQuantity"
           unitName="parUnit"
           quantity={parQty}
           onQuantity={setParQty}
           unit={parUnit}
           onUnit={setParUnit}
-          placeholder="6"
+          placeholder={dict.items.parLevelPlaceholder}
           customUnits={customUnits}
         />
       ) : (
@@ -424,15 +431,15 @@ function EditItemForm({
           className="min-h-[44px] self-start"
           onClick={() => setShowPar(true)}
         >
-          <PlusIcon /> Add par level
+          <PlusIcon /> {dict.items.addParLevel}
         </Button>
       )}
       <div className="flex gap-2">
         <Button type="submit" className="min-h-[48px] flex-1" disabled={isPending}>
-          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.common.save}
         </Button>
         <Button type="button" variant="outline" className="min-h-[48px]" onClick={onDone}>
-          Cancel
+          {dict.common.cancel}
         </Button>
       </div>
     </form>

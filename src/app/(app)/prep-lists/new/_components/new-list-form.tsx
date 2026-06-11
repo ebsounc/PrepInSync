@@ -3,6 +3,7 @@
 import { useActionState } from 'react'
 import { Loader2Icon } from 'lucide-react'
 import { createListAction, type ListActionState } from '../../actions'
+import { useT } from '@/lib/i18n/client'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ export function NewListForm({
   defaultDate: string
   titleHint: string
 }) {
+  const { dict } = useT()
   const [state, action, isPending] = useActionState<ListActionState, FormData>(
     createListAction,
     null
@@ -29,15 +31,15 @@ export function NewListForm({
         </div>
       )}
       <Field name="title">
-        <FieldLabel>Title</FieldLabel>
+        <FieldLabel>{dict.prepLists.title}</FieldLabel>
         <Input type="text" name="title" required placeholder={titleHint} autoFocus spellCheck />
       </Field>
       <Field name="date">
-        <FieldLabel>Date</FieldLabel>
+        <FieldLabel>{dict.prepLists.date}</FieldLabel>
         <Input type="date" name="date" required defaultValue={defaultDate} />
       </Field>
       <Button type="submit" className="min-h-[52px] text-base" disabled={isPending}>
-        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Create list'}
+        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.prepLists.createList}
       </Button>
     </form>
   )

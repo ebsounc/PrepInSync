@@ -6,7 +6,8 @@ import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getRestaurantById } from '@/lib/db/queries/restaurants'
 import { getPrepListsByRestaurant, getPrepListEntries } from '@/lib/db/queries/prep-lists'
 import { translatePrepLists, translatePrepListEntries } from '@/lib/translation/apply'
-import { formatListDate, getGreeting } from '@/lib/format'
+import { formatListDate, greetingKey } from '@/lib/format'
+import { getDictionary, interpolate } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { PrepListCard } from '../_components/prep-list-card'
 
@@ -24,9 +25,9 @@ export default async function DashboardPage() {
   const timezone = restaurant?.timezone ?? 'UTC'
   // "Today" is computed in the restaurant's timezone (en-CA formats as YYYY-MM-DD).
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
-  const greeting = getGreeting(timezone)
-
   const lang = profile.preferredLanguage
+  const dict = getDictionary(lang)
+  const greeting = dict.greeting[greetingKey(timezone)]
   const lists = await getPrepListsByRestaurant(profile.restaurantId)
   const todays = await translatePrepLists(
     lists.filter((l) => l.date === today),
@@ -56,9 +57,9 @@ export default async function DashboardPage() {
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-semibold">
-            {greeting}, {profile.firstName}
+            {interpolate(dict.dashboard.greetingName, { greeting, name: profile.firstName })}
           </h1>
-          <p className="text-sm text-muted-foreground">{formatListDate(today)}</p>
+          <p className="text-sm text-muted-foreground">{formatListDate(today, lang)}</p>
         </div>
         {profile.canCreateLists && (
           <Button
@@ -66,23 +67,23 @@ export default async function DashboardPage() {
             nativeButton={false}
             className="min-h-[44px] shrink-0"
           >
-            <PlusIcon /> New list
+            <PlusIcon /> {dict.prepLists.newList}
           </Button>
         )}
       </div>
 
-      <h2 className="mb-2 text-sm font-medium text-muted-foreground">Today&apos;s prep</h2>
+      <h2 className="mb-2 text-sm font-medium text-muted-foreground">{dict.dashboard.todaysPrep}</h2>
       {todays.length === 0 ? (
         <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
           <ClipboardListIcon className="mx-auto mb-2 size-6" />
-          <p>No prep lists for today.</p>
-          {profile.canCreateLists && <p className="mt-1 text-sm">Create one to get started.</p>}
+          <p>{dict.dashboard.noListsToday}</p>
+          {profile.canCreateLists && <p className="mt-1 text-sm">{dict.dashboard.createToStart}</p>}
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
           {todaysWithEntries.map(({ list, entries }) => (
             <li key={list.id}>
-              <PrepListCard list={list} entries={entries} />
+              <PrepListCard list={list} entries={entries} lang={lang} />
             </li>
           ))}
         </ul>
@@ -90,7 +91,7 @@ export default async function DashboardPage() {
 
       <div className="mt-6">
         <Link href="/prep-lists" className="text-sm text-primary hover:underline">
-          View all prep lists →
+          {dict.dashboard.viewAll}
         </Link>
       </div>
     </div>

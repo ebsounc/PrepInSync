@@ -4,11 +4,13 @@ import { useRef, useState, useActionState } from 'react'
 import Link from 'next/link'
 import { EyeIcon, EyeOffIcon, Loader2Icon, MailCheckIcon } from 'lucide-react'
 import { signupAction } from '@/app/(auth)/actions'
+import { useT } from '@/lib/i18n/client'
 import { Field, FieldLabel, FieldError } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
 export function SignupForm() {
+  const { dict } = useT()
   const [state, action, isPending] = useActionState(signupAction, null)
   const [showPassword, setShowPassword] = useState(false)
   const [language, setLanguage] = useState<'en' | 'es'>('en')
@@ -19,10 +21,8 @@ export function SignupForm() {
       <div className="flex flex-col items-center gap-4 py-4 text-center">
         <MailCheckIcon className="size-12 text-primary" />
         <div>
-          <p className="font-medium">Check your email</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            We sent a confirmation link to your inbox. Click it to finish setting up your account.
-          </p>
+          <p className="font-medium">{dict.auth.checkEmailTitle}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{dict.auth.checkEmailBody}</p>
         </div>
       </div>
     )
@@ -37,42 +37,42 @@ export function SignupForm() {
       )}
       <div className="grid grid-cols-2 gap-3">
         <Field name="firstName">
-          <FieldLabel>First name</FieldLabel>
+          <FieldLabel>{dict.team.firstName}</FieldLabel>
           <Input
             type="text"
             name="firstName"
             required
-            placeholder="Jane"
+            placeholder={dict.team.firstNamePlaceholder}
             autoComplete="given-name"
             autoFocus
           />
           <FieldError />
         </Field>
         <Field name="lastName">
-          <FieldLabel>Last name</FieldLabel>
+          <FieldLabel>{dict.team.lastName}</FieldLabel>
           <Input
             type="text"
             name="lastName"
             required
-            placeholder="Smith"
+            placeholder={dict.team.lastNamePlaceholder}
             autoComplete="family-name"
           />
           <FieldError />
         </Field>
       </div>
       <Field name="email">
-        <FieldLabel>Email</FieldLabel>
+        <FieldLabel>{dict.auth.email}</FieldLabel>
         <Input
           type="email"
           name="email"
           required
-          placeholder="you@restaurant.com"
+          placeholder={dict.auth.emailPlaceholder}
           autoComplete="email"
         />
         <FieldError />
       </Field>
       <Field name="password">
-        <FieldLabel>Password</FieldLabel>
+        <FieldLabel>{dict.auth.password}</FieldLabel>
         <div className="relative">
           <Input
             ref={passwordRef}
@@ -80,7 +80,7 @@ export function SignupForm() {
             name="password"
             required
             minLength={8}
-            placeholder="Min. 8 characters"
+            placeholder={dict.auth.minChars}
             autoComplete="new-password"
             className="pr-10"
           />
@@ -89,7 +89,7 @@ export function SignupForm() {
             onClick={() => setShowPassword((v) => !v)}
             className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
             tabIndex={-1}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-label={showPassword ? dict.auth.hidePassword : dict.auth.showPassword}
           >
             {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
           </button>
@@ -97,17 +97,17 @@ export function SignupForm() {
         <FieldError />
       </Field>
       <Field name="confirmPassword">
-        <FieldLabel>Confirm password</FieldLabel>
+        <FieldLabel>{dict.auth.confirmPassword}</FieldLabel>
         <Input
           type="password"
           name="confirmPassword"
           required
-          placeholder="Repeat your password"
+          placeholder={dict.auth.repeatPassword}
           autoComplete="new-password"
           onInput={(e) => {
             e.currentTarget.setCustomValidity(
               e.currentTarget.value !== (passwordRef.current?.value ?? '')
-                ? 'Passwords do not match'
+                ? dict.auth.passwordsNoMatch
                 : ''
             )
           }}
@@ -115,7 +115,7 @@ export function SignupForm() {
         <FieldError />
       </Field>
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">Language</label>
+        <label className="text-sm font-medium text-foreground">{dict.auth.languageLabel}</label>
         <input type="hidden" name="language" value={language} />
         <div className="grid grid-cols-2 gap-2">
           {(['en', 'es'] as const).map((code) => (
@@ -131,21 +131,19 @@ export function SignupForm() {
                   : 'text-muted-foreground hover:bg-muted/50')
               }
             >
-              {code === 'en' ? 'English' : 'Español'}
+              {code === 'en' ? dict.languages.en : dict.languages.es}
             </button>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">
-          The language you&apos;ll read and write prep lists in. You can change it later.
-        </p>
+        <p className="text-xs text-muted-foreground">{dict.auth.languageHelp}</p>
       </div>
       <Button type="submit" className="w-full min-h-[52px] text-base" disabled={isPending}>
-        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Create account'}
+        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.auth.createAccount}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{' '}
+        {dict.auth.haveAccount}{' '}
         <Link href="/login" className="text-primary hover:underline">
-          Sign in
+          {dict.auth.signIn}
         </Link>
       </p>
     </form>
