@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 export type Correctable = {
-  entityType: 'prep_item' | 'prep_list' | 'prep_list_entry' | 'restaurant_unit'
+  entityType: 'prep_item' | 'prep_list' | 'prep_list_entry' | 'restaurant_unit' | 'recipe'
   entityId: string
   field: string
   label: string

@@ -14,9 +14,11 @@ import { getActionDict } from '@/lib/i18n/server'
 // Fields a member can correct the translation of. Keep in sync with the entity
 // types used by the translation cache.
 const overrideSchema = z.object({
-  entityType: z.enum(['prep_item', 'prep_list', 'prep_list_entry', 'restaurant_unit']),
+  entityType: z.enum(['prep_item', 'prep_list', 'prep_list_entry', 'restaurant_unit', 'recipe']),
   entityId: z.string().uuid(),
-  field: z.string().trim().min(1).max(40),
+  // Recipe subfield keys like "ingredient:12:name" are longer than the flat item
+  // fields, so allow a bit more room than the original 40.
+  field: z.string().trim().min(1).max(60),
   sourceText: z.string().trim().min(1).max(500),
   sourceLanguage: z.enum(['en', 'es']),
   targetLanguage: z.enum(['en', 'es']),

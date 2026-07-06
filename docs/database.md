@@ -181,3 +181,54 @@ The `translations` table is a lazy cache keyed by
 source text) for automatic staleness detection. Full design rules are in
 `CLAUDE.md` ("Translation rules") and the table comment in `schema.ts` — not
 repeated here.
+
+### Recipe fields (Phase 4)
+
+`recipes.ingredients` and `recipes.instructions` are JSONB arrays, so their
+translatable sub-fields are keyed **positionally** in the flat `field` column:
+
+- ingredient name → `ingredient:{i}:name`
+- ingredient unit → `ingredient:{i}:unit` (only free-text units — see below)
+- step text → `step:{i}:text`
+
+`entity_type` is `'recipe'`, `entity_id` is the recipe id. The keying lives in
+`translateRecipe` ([src/lib/translation/apply.ts](../src/lib/translation/apply.ts))
+and the corrections wiring on the recipe page. Because keys are positional,
+reordering ingredients/steps shifts which cached row a position maps to — the
+`source_hash` check then treats the moved text as stale and re-translates, so it's
+self-correcting (never shows the wrong translation, just re-spends on a reorder).
+
+**Recipe units are free text**, deliberately NOT validated by `isValidUnit`
+(a pasted recipe uses "cup"/"tbsp"/"clove", which aren't built-ins or the
+restaurant's custom units). Unit translation is three-way: built-in units
+(`lib/units.ts` `UNIT_VALUES`) render via the static `formatAmount` table; a unit
+that matches a restaurant custom unit uses that label map; anything else goes
+through the LLM cache as `ingredient:{i}:unit`.
+
+**Editing a recipe needs no explicit cache delete** — `source_hash` staleness
+regenerates changed fields on next read (same as items/lists). Only the
+corrections path (source text unchanged, desired translation changed) calls
+`deleteTranslationsFor`.
+
+**Big entities are chunked.** `getTranslations` splits a cache miss into
+`TRANSLATE_CHUNK_SIZE`-field chunks (10) and translates them in parallel — a full
+recipe is 30+ fields and a single LLM call for all of them overran
+`translateBatch`'s per-call timeout and failed wholesale (nothing cached, so it
+never recovered). Chunks cache independently, so one slow/failed chunk only falls
+its own fields back to source text.
+
+**Known gap (accepted for v1):** deleting a recipe (or reordering/removing
+ingredients) leaves its `translations` rows orphaned — `translations.entity_id`
+is not a FK, so nothing cascades. Those rows are restaurant-scoped by RLS and
+never re-read (the positional key no longer resolves), so they're inert; they just
+accumulate. A future cleanup could delete `translations WHERE entity_type='recipe'
+AND entity_id=$id` on recipe delete.
+
+### One recipe per item (app-level, no DB constraint)
+
+`recipes.prep_item_id` has **no** UNIQUE index. One-recipe-per-item is enforced in
+the create action (`createRecipeAction` → `hasRecipe` check) and reads take the
+oldest row (`getRecipeByItemId` orders by `created_at` and `limit 1`). This keeps
+Phase 4 migration-free (the table shipped in baseline `0000`). The clean future
+upgrade is a `uniqueIndex('one_recipe_per_item').on(recipes.prepItemId)` migration
+if a concurrent double-create ever proves to be a real problem.

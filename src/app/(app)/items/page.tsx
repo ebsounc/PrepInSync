@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getPrepItemsByRestaurant } from '@/lib/db/queries/prep-items'
+import { getRecipeItemIds } from '@/lib/db/queries/recipes'
 import { getRestaurantUnits } from '@/lib/db/queries/restaurant-units'
 import { translatePrepItems, getCustomUnitLabelMap } from '@/lib/translation/apply'
 import { getDictionary } from '@/lib/i18n'
@@ -22,9 +23,13 @@ export default async function ItemsPage() {
     getPrepItemsByRestaurant(profile.restaurantId),
     getRestaurantUnits(profile.restaurantId),
   ])
-  const [translatedItems, customUnitLabels] = await Promise.all([
+  const [translatedItems, customUnitLabels, recipeItemIds] = await Promise.all([
     translatePrepItems(items, profile.restaurantId, lang),
     getCustomUnitLabelMap(profile.restaurantId, lang),
+    getRecipeItemIds(
+      profile.restaurantId,
+      items.map((i) => i.id)
+    ),
   ])
 
   return (
@@ -35,6 +40,7 @@ export default async function ItemsPage() {
         canManage={profile.canCreateLists}
         customUnits={units.map((u) => u.label)}
         customUnitLabels={customUnitLabels}
+        recipeItemIds={[...recipeItemIds]}
         lang={lang}
       />
     </div>

@@ -5,7 +5,9 @@ import type {
   PrepListWithProgress,
   PrepListEntryWithMeta,
 } from '@/lib/db/queries/prep-lists'
+import type { Recipe } from '@/lib/db/queries/recipes'
 import { getRestaurantUnitsForTranslation } from '@/lib/db/queries/restaurant-units'
+import { UNIT_VALUES } from '@/lib/units'
 
 // Display-augmented variants. The canonical fields are left untouched so edit
 // forms keep editing the source text; the `*Display` fields hold the translation
@@ -142,6 +144,86 @@ export async function translatePrepListEntries(
       ? (t.get(keyOf('prep_list_entry', e.id, 'cook_note')) ?? e.cookNote)
       : e.cookNote,
   }))
+}
+
+// Recipe with per-viewer translated ingredient names, ingredient units, and step
+// text. Canonical `ingredients`/`instructions` are left intact so the editor keeps
+// editing the source. `unitDisplay` is the translated unit label to show (built-in
+// units are left raw for formatAmount to render; custom/free-text units are
+// resolved here).
+export type RecipeDisplay = Recipe & {
+  ingredientsDisplay: { name: string; quantity: string; unit: string; unitDisplay: string }[]
+  instructionsDisplay: { text: string }[]
+}
+
+const UNIT_SET = new Set<string>(UNIT_VALUES)
+
+export async function translateRecipe(
+  recipe: Recipe,
+  restaurantId: string,
+  lang: 'en' | 'es',
+  customUnitLabels: Record<string, string>
+): Promise<RecipeDisplay> {
+  const fields: TranslatableField[] = []
+  recipe.ingredients.forEach((ing, i) => {
+    if (ing.name) {
+      fields.push({
+        entityType: 'recipe',
+        entityId: recipe.id,
+        field: `ingredient:${i}:name`,
+        sourceText: ing.name,
+        sourceLanguage: recipe.sourceLanguage,
+      })
+    }
+    // Built-in units translate via the static units table (formatAmount); custom
+    // units via the pre-built label map. Only free-text units (e.g. a pasted
+    // "clove") that are neither go through the LLM cache.
+    if (ing.unit && !UNIT_SET.has(ing.unit) && !(ing.unit in customUnitLabels)) {
+      fields.push({
+        entityType: 'recipe',
+        entityId: recipe.id,
+        field: `ingredient:${i}:unit`,
+        sourceText: ing.unit,
+        sourceLanguage: recipe.sourceLanguage,
+      })
+    }
+  })
+  recipe.instructions.forEach((step, i) => {
+    if (step.text) {
+      fields.push({
+        entityType: 'recipe',
+        entityId: recipe.id,
+        field: `step:${i}:text`,
+        sourceText: step.text,
+        sourceLanguage: recipe.sourceLanguage,
+      })
+    }
+  })
+
+  const t = await getTranslations(fields, restaurantId, lang)
+
+  const unitDisplayFor = (unit: string, i: number): string => {
+    if (!unit || UNIT_SET.has(unit)) return unit // built-in: leave for formatAmount
+    if (unit in customUnitLabels) return customUnitLabels[unit]
+    return t.get(keyOf('recipe', recipe.id, `ingredient:${i}:unit`)) ?? unit
+  }
+
+  return {
+    ...recipe,
+    ingredientsDisplay: recipe.ingredients.map((ing, i) => ({
+      name: ing.name
+        ? (t.get(keyOf('recipe', recipe.id, `ingredient:${i}:name`)) ?? ing.name)
+        : ing.name,
+      quantity: ing.quantity,
+      unit: ing.unit,
+      unitDisplay: unitDisplayFor(ing.unit, i),
+    })),
+    instructionsDisplay: recipe.instructions.map((step, i) => ({
+      text: step.text
+        ? (t.get(keyOf('recipe', recipe.id, `step:${i}:text`)) ?? step.text)
+        : (step.text ?? ''),
+    })),
+  }
 }
 
 // Map of custom-unit label → translated label, for display. Built-in units are

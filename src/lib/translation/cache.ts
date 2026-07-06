@@ -20,6 +20,10 @@ export const keyOf = (entityType: string, entityId: string, field: string) =>
 
 const md5 = (text: string) => createHash('md5').update(text).digest('hex')
 
+// Max fields per LLM call. Keeps each translateBatch call well under its timeout so
+// large entities (a full recipe) translate reliably; chunks run in parallel.
+const TRANSLATE_CHUNK_SIZE = 10
+
 // Lazy read-through translation cache. Returns a Map keyed by
 // `${entityType}:${entityId}:${field}` → the text to display in targetLanguage.
 //
@@ -91,41 +95,53 @@ export async function getTranslations(
 
   const toPersist: (typeof translations.$inferInsert)[] = []
   for (const [sourceLanguage, group] of bySource) {
-    try {
-      const overrides = await getGlossaryOverrides(
-        restaurantId,
-        sourceLanguage,
-        targetLanguage
-      )
-      const translated = await translateBatch({
-        items: group.map((g) => ({ id: g.key, text: g.sourceText })),
-        sourceLanguage,
-        targetLanguage,
-        overrides,
-      })
-      for (const g of group) {
-        const text = translated.get(g.key)
-        // translateBatch guarantees every id on success, but guard anyway: only
-        // persist real translations, never a source-text fallback.
-        if (text === undefined) {
-          result.set(g.key, g.sourceText)
-          continue
-        }
-        result.set(g.key, text)
-        toPersist.push({
-          restaurantId,
-          entityType: g.entityType,
-          entityId: g.entityId,
-          field: g.field,
-          targetLanguage,
-          translatedText: text,
-          sourceHash: g.hash,
-        })
-      }
-    } catch {
-      // LLM failed for this group — show source text, persist nothing, retry later.
-      for (const g of group) result.set(g.key, g.sourceText)
+    const overrides = await getGlossaryOverrides(
+      restaurantId,
+      sourceLanguage,
+      targetLanguage
+    )
+    // Split into chunks so a big entity (e.g. a full recipe = ingredients + steps,
+    // 30+ fields) doesn't exceed translateBatch's per-call timeout and fail wholesale.
+    // Chunks run in parallel and cache independently: one slow/failed chunk falls back
+    // to source text on its own fields without losing the rest.
+    const chunks: Need[][] = []
+    for (let i = 0; i < group.length; i += TRANSLATE_CHUNK_SIZE) {
+      chunks.push(group.slice(i, i + TRANSLATE_CHUNK_SIZE))
     }
+    await Promise.all(
+      chunks.map(async (chunkGroup) => {
+        try {
+          const translated = await translateBatch({
+            items: chunkGroup.map((g) => ({ id: g.key, text: g.sourceText })),
+            sourceLanguage,
+            targetLanguage,
+            overrides,
+          })
+          for (const g of chunkGroup) {
+            const text = translated.get(g.key)
+            // translateBatch guarantees every id on success, but guard anyway: only
+            // persist real translations, never a source-text fallback.
+            if (text === undefined) {
+              result.set(g.key, g.sourceText)
+              continue
+            }
+            result.set(g.key, text)
+            toPersist.push({
+              restaurantId,
+              entityType: g.entityType,
+              entityId: g.entityId,
+              field: g.field,
+              targetLanguage,
+              translatedText: text,
+              sourceHash: g.hash,
+            })
+          }
+        } catch {
+          // LLM failed for this chunk — show source text, persist nothing, retry later.
+          for (const g of chunkGroup) result.set(g.key, g.sourceText)
+        }
+      })
+    )
   }
 
   if (toPersist.length > 0) {

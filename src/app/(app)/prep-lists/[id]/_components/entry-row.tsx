@@ -1,7 +1,9 @@
 'use client'
 
 import { useActionState, useEffect, useState, useTransition } from 'react'
+import Link from 'next/link'
 import {
+  BookOpenIcon,
   CheckCircle2Icon,
   CircleIcon,
   Loader2Icon,
@@ -33,6 +35,7 @@ export function EntryRow({
   canManage,
   customUnits,
   customUnitLabels,
+  hasRecipe,
   lang,
   currentUserId,
 }: {
@@ -40,6 +43,7 @@ export function EntryRow({
   canManage: boolean
   customUnits: string[]
   customUnitLabels: Record<string, string>
+  hasRecipe: boolean
   lang: 'en' | 'es'
   currentUserId: string
 }) {
@@ -53,6 +57,7 @@ export function EntryRow({
       entry={entry}
       canManage={canManage}
       customUnitLabels={customUnitLabels}
+      hasRecipe={hasRecipe}
       lang={lang}
       currentUserId={currentUserId}
       onEdit={() => setEditing(true)}
@@ -64,6 +69,7 @@ function DisplayEntry({
   entry,
   canManage,
   customUnitLabels,
+  hasRecipe,
   lang,
   currentUserId,
   onEdit,
@@ -71,6 +77,7 @@ function DisplayEntry({
   entry: PrepListEntryDisplay
   canManage: boolean
   customUnitLabels: Record<string, string>
+  hasRecipe: boolean
   lang: 'en' | 'es'
   currentUserId: string
   onEdit: () => void
@@ -136,6 +143,15 @@ function DisplayEntry({
       )}
 
       <CookNoteSection entry={entry} currentUserId={currentUserId} />
+
+      {hasRecipe && (
+        <Link
+          href={`/items/${entry.prepItemId}/recipe`}
+          className="flex min-h-[44px] items-center gap-1.5 border-t px-3 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <BookOpenIcon className="size-4" /> {dict.recipes.viewRecipe}
+        </Link>
+      )}
 
       {canManage && (
         <div className="flex gap-1 border-t px-2 py-1">

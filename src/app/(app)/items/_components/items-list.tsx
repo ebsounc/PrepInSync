@@ -1,7 +1,8 @@
 'use client'
 
 import { useActionState, useEffect, useState, useTransition } from 'react'
-import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import Link from 'next/link'
+import { BookOpenIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import {
   createItemAction,
   updateItemAction,
@@ -24,14 +25,17 @@ export function ItemsList({
   canManage,
   customUnits,
   customUnitLabels,
+  recipeItemIds,
   lang,
 }: {
   items: PrepItemDisplay[]
   canManage: boolean
   customUnits: string[]
   customUnitLabels: Record<string, string>
+  recipeItemIds: string[]
   lang: 'en' | 'es'
 }) {
+  const recipeItems = new Set(recipeItemIds)
   const { dict } = useT()
   // Open inline when the catalog is empty; otherwise collapse to a button so the
   // list isn't pushed down by the form (and we avoid deeply nested dropdowns).
@@ -94,6 +98,7 @@ export function ItemsList({
               canManage={canManage}
               customUnits={customUnits}
               customUnitLabels={customUnitLabels}
+              hasRecipe={recipeItems.has(item.id)}
               lang={lang}
             />
           ))}
@@ -267,12 +272,14 @@ function ItemRow({
   canManage,
   customUnits,
   customUnitLabels,
+  hasRecipe,
   lang,
 }: {
   item: PrepItemDisplay
   canManage: boolean
   customUnits: string[]
   customUnitLabels: Record<string, string>
+  hasRecipe: boolean
   lang: 'en' | 'es'
 }) {
   const { dict, t } = useT()
@@ -285,38 +292,52 @@ function ItemRow({
     return <EditItemForm item={item} customUnits={customUnits} onDone={() => setEditing(false)} />
   }
 
+  // Cooks only see a link when a recipe exists; builders also get "Add recipe".
+  const showRecipeLink = hasRecipe || canManage
+
   return (
-    <li className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5">
-      <div className="min-w-0">
-        <div className="truncate font-medium">{item.nameDisplay}</div>
-        {item.descriptionDisplay && (
-          <div className="truncate text-sm text-muted-foreground">{item.descriptionDisplay}</div>
-        )}
-        {item.defaultQuantity && (
-          <div className="text-sm text-muted-foreground">
-            {dict.items.defaultLabel}: {formatAmount(item.defaultQuantity, unitLabel(item.defaultUnit), lang)}
-          </div>
-        )}
-        {item.parQuantity && (
-          <div className="text-sm text-muted-foreground">
-            {dict.items.parLabel}: {formatAmount(item.parQuantity, unitLabel(item.parUnit), lang)}
+    <li className="flex flex-col rounded-lg border">
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+        <div className="min-w-0">
+          <div className="truncate font-medium">{item.nameDisplay}</div>
+          {item.descriptionDisplay && (
+            <div className="truncate text-sm text-muted-foreground">{item.descriptionDisplay}</div>
+          )}
+          {item.defaultQuantity && (
+            <div className="text-sm text-muted-foreground">
+              {dict.items.defaultLabel}: {formatAmount(item.defaultQuantity, unitLabel(item.defaultUnit), lang)}
+            </div>
+          )}
+          {item.parQuantity && (
+            <div className="text-sm text-muted-foreground">
+              {dict.items.parLabel}: {formatAmount(item.parQuantity, unitLabel(item.parUnit), lang)}
+            </div>
+          )}
+        </div>
+        {canManage && (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-11"
+              aria-label={t(dict.items.editAria, { name: item.name })}
+              onClick={() => setEditing(true)}
+            >
+              <PencilIcon />
+            </Button>
+            <DeleteItemButton id={item.id} name={item.name} />
           </div>
         )}
       </div>
-      {canManage && (
-        <div className="flex shrink-0 items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-11"
-            aria-label={t(dict.items.editAria, { name: item.name })}
-            onClick={() => setEditing(true)}
-          >
-            <PencilIcon />
-          </Button>
-          <DeleteItemButton id={item.id} name={item.name} />
-        </div>
+      {showRecipeLink && (
+        <Link
+          href={`/items/${item.id}/recipe`}
+          className="flex min-h-[44px] items-center gap-1.5 border-t px-3 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <BookOpenIcon className="size-4" />
+          {hasRecipe ? dict.recipes.viewRecipe : dict.recipes.addRecipe}
+        </Link>
       )}
     </li>
   )
