@@ -108,8 +108,9 @@ RLS is **enabled on all 10 tables**. Policies as currently deployed:
 | `translations` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
 
 Source: [`supabase/rls_and_triggers.sql`](../supabase/rls_and_triggers.sql),
-[`supabase/add_invites_table.sql`](../supabase/add_invites_table.sql), and
-[`supabase/add_restaurant_units_rls.sql`](../supabase/add_restaurant_units_rls.sql).
+[`supabase/add_invites_table.sql`](../supabase/add_invites_table.sql),
+[`supabase/add_restaurant_units_rls.sql`](../supabase/add_restaurant_units_rls.sql), and
+[`supabase/add_recipe_images_storage.sql`](../supabase/add_recipe_images_storage.sql) (Storage — below).
 
 ### Translation isolation (Phase 3)
 
@@ -232,3 +233,33 @@ oldest row (`getRecipeByItemId` orders by `created_at` and `limit 1`). This keep
 Phase 4 migration-free (the table shipped in baseline `0000`). The clean future
 upgrade is a `uniqueIndex('one_recipe_per_item').on(recipes.prepItemId)` migration
 if a concurrent double-create ever proves to be a real problem.
+
+---
+
+## Storage (Phase 5 — images)
+
+Recipe cover photos and prep-item thumbnails live in a single **private** Supabase
+Storage bucket `recipe-images`. Defined in
+[`supabase/add_recipe_images_storage.sql`](../supabase/add_recipe_images_storage.sql)
+— **applied manually in the SQL editor; the bucket does not exist until it runs.**
+
+- **Tenant isolation by path.** Objects are keyed `{restaurantId}/recipes/{recipeId}/cover.jpg`
+  and `{restaurantId}/items/{itemId}/thumb.jpg`. `storage.objects` RLS keys on the
+  first path segment: `(storage.foldername(name))[1] = caller's restaurant_id` — same
+  isolation model as every table. Fixed filenames + `upsert:true` mean one object per
+  entity (replace overwrites).
+- **`image_url` stores the object PATH, not a URL.** Signed URLs expire, so the DB
+  holds the stable path (`recipes.image_url`, `prep_items.image_url`); display code
+  generates a short-lived signed URL at render time via `lib/storage` (`getSignedUrl` /
+  batched `getSignedUrls` for lists). TTL 1h — a page open past that shows broken
+  images until reload (acceptable for v1).
+- **All Storage mutations go through the service-role admin client** (`lib/storage`,
+  `server-only`), which **bypasses** the RLS above; the policies are defense-in-depth
+  for any direct anon/browser access. Reads never hand the browser a raw path — only
+  signed URLs.
+- **Photo *ingestion* uses no Storage.** A scanned recipe photo is sent inline to
+  Claude vision (`scanRecipe`) and discarded; only cover/thumbnail uploads persist.
+- **Orphan cleanup is best-effort.** Delete actions call `deletePrefix(...)` after the
+  DB delete (a recipe's cover, an item's thumbnail + its recipe's cover, since the
+  `recipes.prep_item_id` cascade drops the row but not Storage). A Storage failure is
+  swallowed so it never blocks the DB delete — a stray object is inert.

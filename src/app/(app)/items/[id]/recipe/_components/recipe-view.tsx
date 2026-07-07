@@ -1,10 +1,15 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Loader2Icon, PencilIcon, Trash2Icon } from 'lucide-react'
-import { deleteRecipeAction } from '../actions'
+import { useRef, useState, useTransition } from 'react'
+import { CameraIcon, Loader2Icon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
+import {
+  deleteRecipeAction,
+  setRecipeImageAction,
+  removeRecipeImageAction,
+} from '../actions'
 import { RecipeEditor } from './recipe-editor'
 import type { RecipeDisplay } from '@/lib/translation/apply'
+import { downscaleToJpegBase64 } from '@/lib/images/downscale'
 import { formatAmount } from '@/lib/units'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/lib/i18n/client'
@@ -14,11 +19,13 @@ export function RecipeView({
   itemId,
   canManage,
   lang,
+  coverUrl,
 }: {
   recipe: RecipeDisplay
   itemId: string
   canManage: boolean
   lang: 'en' | 'es'
+  coverUrl: string | null
 }) {
   const { dict } = useT()
   const [editing, setEditing] = useState(false)
@@ -38,6 +45,18 @@ export function RecipeView({
 
   return (
     <div className="flex flex-col gap-5">
+      {coverUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- signed URL, not optimizable
+        <img
+          src={coverUrl}
+          alt={dict.recipes.coverPhotoAlt}
+          className="max-h-72 w-full rounded-xl border object-cover"
+        />
+      )}
+      {canManage && (
+        <CoverPhotoControl recipeId={recipe.id} itemId={itemId} hasCover={!!coverUrl} />
+      )}
+
       <section>
         <h2 className="mb-2 font-medium">{dict.recipes.ingredientsHeading}</h2>
         <ul className="flex flex-col gap-1">
@@ -104,6 +123,94 @@ function DeleteRecipeButton({ recipeId, itemId }: { recipeId: string; itemId: st
         {pending ? <Loader2Icon className="size-4 animate-spin" /> : <Trash2Icon />}{' '}
         {dict.recipes.deleteRecipe}
       </Button>
+      {error && <span className="text-xs text-destructive">{error}</span>}
+    </div>
+  )
+}
+
+// Add / replace / remove the recipe's cover photo. Downscales client-side, then the
+// action uploads to Storage and stores the path; revalidatePath re-renders the page
+// with the fresh signed URL.
+function CoverPhotoControl({
+  recipeId,
+  itemId,
+  hasCover,
+}: {
+  recipeId: string
+  itemId: string
+  hasCover: boolean
+}) {
+  const { dict } = useT()
+  const [pending, start] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    start(async () => {
+      setError(null)
+      let img
+      try {
+        img = await downscaleToJpegBase64(file)
+      } catch (err) {
+        setError(
+          err instanceof Error && err.message === 'IMAGE_TOO_LARGE'
+            ? dict.errors.recipes.imageTooLarge
+            : dict.errors.recipes.imageInvalid
+        )
+        return
+      }
+      const res = await setRecipeImageAction(recipeId, itemId, {
+        imageBase64: img.base64,
+        mediaType: img.mediaType,
+      })
+      if (res.error) setError(res.error)
+    })
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <div className="flex gap-2">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={onFile}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="min-h-[44px]"
+          disabled={pending}
+          onClick={() => inputRef.current?.click()}
+        >
+          {pending ? <Loader2Icon className="size-4 animate-spin" /> : <CameraIcon className="size-4" />}{' '}
+          {hasCover ? dict.recipes.replaceCoverPhoto : dict.recipes.addCoverPhoto}
+        </Button>
+        {hasCover && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-[44px] text-destructive"
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                setError(null)
+                const res = await removeRecipeImageAction(recipeId, itemId)
+                if (res.error) setError(res.error)
+              })
+            }
+          >
+            <XIcon className="size-4" /> {dict.recipes.removeCoverPhoto}
+          </Button>
+        )}
+      </div>
       {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   )

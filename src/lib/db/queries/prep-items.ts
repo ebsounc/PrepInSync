@@ -97,3 +97,15 @@ export async function deletePrepItem(id: string, restaurantId: string) {
     .delete(prepItems)
     .where(and(eq(prepItems.id, id), eq(prepItems.restaurantId, restaurantId)))
 }
+
+// Sets (or clears, with null) the thumbnail object PATH. Scoped by restaurantId.
+export async function setPrepItemImageUrl(
+  id: string,
+  restaurantId: string,
+  imageUrl: string | null
+) {
+  await db
+    .update(prepItems)
+    .set({ imageUrl, updatedAt: new Date() })
+    .where(and(eq(prepItems.id, id), eq(prepItems.restaurantId, restaurantId)))
+}

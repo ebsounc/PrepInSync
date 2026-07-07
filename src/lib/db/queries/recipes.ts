@@ -92,3 +92,29 @@ export async function updateRecipe(
 export async function deleteRecipe(id: string, restaurantId: string) {
   await db.delete(recipes).where(and(eq(recipes.id, id), eq(recipes.restaurantId, restaurantId)))
 }
+
+// Scoped lookup by recipe id — returns null if it isn't in the caller's restaurant.
+// Used by the cover-photo actions to confirm ownership before touching Storage.
+export async function getRecipeById(
+  id: string,
+  restaurantId: string
+): Promise<Recipe | null> {
+  const rows = await db
+    .select()
+    .from(recipes)
+    .where(and(eq(recipes.id, id), eq(recipes.restaurantId, restaurantId)))
+    .limit(1)
+  return rows[0] ?? null
+}
+
+// Sets (or clears, with null) the cover-photo object PATH. Scoped by restaurantId.
+export async function setRecipeImageUrl(
+  id: string,
+  restaurantId: string,
+  imageUrl: string | null
+) {
+  await db
+    .update(recipes)
+    .set({ imageUrl, updatedAt: new Date() })
+    .where(and(eq(recipes.id, id), eq(recipes.restaurantId, restaurantId)))
+}

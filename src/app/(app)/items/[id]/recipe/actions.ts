@@ -10,32 +10,17 @@ import {
   updateRecipe,
   deleteRecipe,
   hasRecipe,
-  type RecipeIngredient,
-  type RecipeStep,
+  getRecipeById,
+  setRecipeImageUrl,
 } from '@/lib/db/queries/recipes'
-import { parseRecipe, type ParsedRecipe } from '@/lib/ai'
-import { getDictionary, resolveKey, type Dict } from '@/lib/i18n'
+import { parseRecipe, scanRecipe, type ParsedRecipe } from '@/lib/ai'
+import { parseRecipeJson, type ParsedRecipePayload } from '@/lib/recipes/payload'
+import { uploadImage, deleteImage, deletePrefix, recipeCoverPath } from '@/lib/storage'
+import { decodeImageInput } from '@/lib/images/validate'
+import { getDictionary, type Dict } from '@/lib/i18n'
 import { getActionDict } from '@/lib/i18n/server'
 
 export type RecipeActionState = { error?: string; success?: boolean } | null
-
-// Recipe units are FREE TEXT — deliberately NOT run through isValidUnit (a pasted
-// recipe uses "cup"/"tbsp"/"clove" that aren't in the built-in set or the
-// restaurant's custom units). See docs/database.md.
-const ingredientSchema = z.object({
-  name: z.string().trim().min(1, 'errors.recipes.ingredientNameRequired').max(200),
-  quantity: z.string().trim().max(20).default(''),
-  unit: z.string().trim().max(40).default(''),
-})
-const stepSchema = z.object({
-  text: z.string().trim().min(1, 'errors.recipes.stepTextRequired').max(2000),
-})
-const recipeSchema = z.object({
-  // Cap array length so a crafted payload can't write an unbounded JSONB blob or
-  // fan out into a huge translation batch. Well above any real recipe.
-  ingredients: z.array(ingredientSchema).min(1, 'errors.recipes.ingredientsRequired').max(100),
-  instructions: z.array(stepSchema).min(1, 'errors.recipes.stepsRequired').max(100),
-})
 
 // Recipe authoring is gated on can_create_lists (the people who own the catalog).
 async function requireBuilder() {
@@ -60,23 +45,13 @@ async function requireBuilder() {
 }
 
 // Ingredients/instructions arrive as a JSON string (variable-length arrays don't
-// map cleanly to flat FormData). Parse + validate into the jsonb shape.
+// map cleanly to flat FormData). Validation lives in the shared payload module so the
+// inline "add recipe while creating an item" flow enforces the same rules.
 function parseRecipeForm(
   formData: FormData,
   dict: Dict
-): { ingredients: RecipeIngredient[]; instructions: RecipeStep[] } | { error: string } {
-  let raw: unknown
-  try {
-    raw = JSON.parse(String(formData.get('recipe') ?? ''))
-  } catch {
-    return { error: dict.errors.recipes.invalidRecipe }
-  }
-  const parsed = recipeSchema.safeParse(raw)
-  if (!parsed.success) return { error: resolveKey(dict, parsed.error.issues[0].message) }
-  return {
-    ingredients: parsed.data.ingredients,
-    instructions: parsed.data.instructions,
-  }
+): ParsedRecipePayload | { error: string } {
+  return parseRecipeJson(String(formData.get('recipe') ?? ''), dict)
 }
 
 export async function createRecipeAction(
@@ -158,7 +133,15 @@ export async function deleteRecipeAction(
   const item = z.string().uuid().safeParse(itemId)
   if (!id.success || !item.success) return { error: ctx.dict.errors.recipes.notFound }
 
+  // Confirm ownership before touching Storage (same discipline as the image actions);
+  // a foreign/unknown id is a DB no-op, so just skip cleanup.
+  const existing = await getRecipeById(id.data, ctx.restaurantId)
   await deleteRecipe(id.data, ctx.restaurantId)
+  // Best-effort: drop the recipe's Storage objects (cover photo). A failure here
+  // must not block the DB delete — the row is already gone.
+  try {
+    if (existing) await deletePrefix(`${ctx.restaurantId}/recipes/${id.data}/`)
+  } catch {}
   revalidatePath('/items')
   revalidatePath(`/items/${item.data}/recipe`)
   // Prep-list entries show a "View recipe" badge keyed on recipe existence.
@@ -188,4 +171,95 @@ export async function parseRecipeAction(
   } catch {
     return { error: ctx.dict.errors.recipes.parseFailed }
   }
+}
+
+// Structures a recipe PHOTO into ingredients/steps to prefill the editor (Claude
+// vision). Writes nothing — the image is used inline and discarded; the chef reviews
+// and saves via createRecipeAction. Mirrors parseRecipeAction.
+export async function scanRecipeAction(input: {
+  imageBase64: string
+  mediaType: string
+}): Promise<{ error?: string; data?: ParsedRecipe }> {
+  const ctx = await requireBuilder()
+  if ('error' in ctx) return { error: ctx.error }
+
+  const decoded = decodeImageInput(input)
+  if ('code' in decoded) {
+    return {
+      error:
+        decoded.code === 'tooLarge'
+          ? ctx.dict.errors.recipes.scanTooLarge
+          : ctx.dict.errors.recipes.scanImageInvalid,
+    }
+  }
+
+  try {
+    const data = await scanRecipe(decoded.base64, decoded.mediaType, ctx.profile.preferredLanguage)
+    return { data }
+  } catch {
+    return { error: ctx.dict.errors.recipes.scanFailed }
+  }
+}
+
+// Uploads (or replaces) a recipe's cover photo. Stored at the recipe's tenant-scoped
+// path; the OBJECT PATH (not a signed URL) is saved on recipes.image_url.
+export async function setRecipeImageAction(
+  recipeId: string,
+  itemId: string,
+  input: { imageBase64: string; mediaType: string }
+): Promise<{ error?: string }> {
+  const ctx = await requireBuilder()
+  if ('error' in ctx) return { error: ctx.error }
+
+  const id = z.string().uuid().safeParse(recipeId)
+  const item = z.string().uuid().safeParse(itemId)
+  if (!id.success || !item.success) return { error: ctx.dict.errors.recipes.notFound }
+
+  // Confirm the recipe is ours before touching Storage or the row.
+  const recipe = await getRecipeById(id.data, ctx.restaurantId)
+  if (!recipe) return { error: ctx.dict.errors.recipes.notFound }
+
+  const decoded = decodeImageInput(input)
+  if ('code' in decoded) {
+    return {
+      error:
+        decoded.code === 'tooLarge'
+          ? ctx.dict.errors.recipes.imageTooLarge
+          : ctx.dict.errors.recipes.imageInvalid,
+    }
+  }
+
+  const path = recipeCoverPath(ctx.restaurantId, id.data)
+  try {
+    await uploadImage(path, decoded.bytes, 'image/jpeg')
+  } catch {
+    return { error: ctx.dict.errors.recipes.imageUploadFailed }
+  }
+  await setRecipeImageUrl(id.data, ctx.restaurantId, path)
+  revalidatePath('/items')
+  revalidatePath(`/items/${item.data}/recipe`)
+  return {}
+}
+
+export async function removeRecipeImageAction(
+  recipeId: string,
+  itemId: string
+): Promise<{ error?: string }> {
+  const ctx = await requireBuilder()
+  if ('error' in ctx) return { error: ctx.error }
+
+  const id = z.string().uuid().safeParse(recipeId)
+  const item = z.string().uuid().safeParse(itemId)
+  if (!id.success || !item.success) return { error: ctx.dict.errors.recipes.notFound }
+
+  const recipe = await getRecipeById(id.data, ctx.restaurantId)
+  if (!recipe) return { error: ctx.dict.errors.recipes.notFound }
+
+  await setRecipeImageUrl(id.data, ctx.restaurantId, null)
+  try {
+    await deleteImage(recipeCoverPath(ctx.restaurantId, id.data))
+  } catch {}
+  revalidatePath('/items')
+  revalidatePath(`/items/${item.data}/recipe`)
+  return {}
 }

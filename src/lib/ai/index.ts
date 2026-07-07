@@ -135,12 +135,21 @@ const parseSchema = z.object({
   instructions: z.array(z.object({ text: z.string() })),
 })
 
+// Shared structuring rules for both the paste (text) and scan (photo) paths. This is
+// PARSING, not translating — the glossary is intentionally NOT injected: the model
+// keeps the author's original language/wording so the result round-trips through the
+// normal translation cache afterward. sourceLanguage is only a hint; the caller
+// stamps recipes.source_language authoritatively.
+const structureRules = (sourceLanguage: 'en' | 'es') =>
+  `The recipe is in ${LANGUAGE_NAMES[sourceLanguage]}. ` +
+  `Keep every ingredient name and instruction in its ORIGINAL language and wording — ` +
+  `do NOT translate. For each ingredient, split the amount into "quantity" (the number, ` +
+  `e.g. "2" or "1.5") and "unit" (e.g. "cup", "lb", "clove"); put the food in "name". ` +
+  `When there is no amount (e.g. "salt to taste"), use empty strings for quantity and unit ` +
+  `and put the whole phrase in "name". Return instructions as an ordered list of steps, ` +
+  `one action per step, text only — no step numbers in the text.`
+
 // Structures a pasted recipe (Word/Docs/plain text) into ingredients + steps.
-// This is PARSING, not translating — the glossary is intentionally NOT injected:
-// the model keeps the author's original language/wording so the result round-trips
-// through the normal translation cache afterward. sourceLanguage is only a hint for
-// the model; the caller stamps recipes.source_language authoritatively.
-//
 // THROWS on API error, timeout, or an empty result (no ingredients AND no steps) so
 // the caller can fall back to manual entry. Input is capped defensively.
 export async function parseRecipe(
@@ -154,13 +163,8 @@ export async function parseRecipe(
     schema: parseSchema,
     system:
       `You extract a structured recipe from pasted text (from a Word doc, Google Doc, ` +
-      `email, or notes). The text is in ${LANGUAGE_NAMES[sourceLanguage]}. ` +
-      `Keep every ingredient name and instruction in its ORIGINAL language and wording — ` +
-      `do NOT translate. For each ingredient, split the amount into "quantity" (the number, ` +
-      `e.g. "2" or "1.5") and "unit" (e.g. "cup", "lb", "clove"); put the food in "name". ` +
-      `When there is no amount (e.g. "salt to taste"), use empty strings for quantity and unit ` +
-      `and put the whole phrase in "name". Return instructions as an ordered list of steps, ` +
-      `one action per step, text only — no step numbers in the text.`,
+      `email, or notes). ` +
+      structureRules(sourceLanguage),
     prompt: text,
     abortSignal: AbortSignal.timeout(PARSE_TIMEOUT_MS),
     maxRetries: 1,
@@ -168,6 +172,42 @@ export async function parseRecipe(
 
   if (object.ingredients.length === 0 && object.instructions.length === 0) {
     throw new Error('parseRecipe: model returned no ingredients or steps')
+  }
+  return object
+}
+
+// Vision timeout is higher than paste — reading a photo is a slower generation.
+const SCAN_TIMEOUT_MS = 30000
+
+// Structures a PHOTO of a recipe (a binder page, recipe card, handwritten note) into
+// ingredients + steps via Claude's vision. `imageBase64` is raw base64 (no data URL
+// prefix); `mediaType` is the IANA type (image/jpeg|png|webp). Same output shape,
+// same throw-on-empty contract as parseRecipe. The image is used inline and NOT
+// stored anywhere.
+export async function scanRecipe(
+  imageBase64: string,
+  mediaType: string,
+  sourceLanguage: 'en' | 'es'
+): Promise<ParsedRecipe> {
+  const { object } = await generateObject({
+    model: anthropic(MODEL),
+    schema: parseSchema,
+    system:
+      `You extract a structured recipe from a PHOTO of a recipe page, recipe card, or ` +
+      `handwritten note. Read all visible text carefully, including handwriting. ` +
+      structureRules(sourceLanguage),
+    messages: [
+      {
+        role: 'user',
+        content: [{ type: 'image', image: imageBase64, mediaType }],
+      },
+    ],
+    abortSignal: AbortSignal.timeout(SCAN_TIMEOUT_MS),
+    maxRetries: 1,
+  })
+
+  if (object.ingredients.length === 0 && object.instructions.length === 0) {
+    throw new Error('scanRecipe: model returned no ingredients or steps')
   }
   return object
 }

@@ -5,11 +5,16 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getPrepItemById } from '@/lib/db/queries/prep-items'
 import { getRecipeByItemId } from '@/lib/db/queries/recipes'
+import { getSignedUrl } from '@/lib/storage'
 import { translatePrepItems, translateRecipe, getCustomUnitLabelMap } from '@/lib/translation/apply'
 import { getDictionary, interpolate } from '@/lib/i18n'
 import { TranslationCorrections, type Correctable } from '@/components/translation-corrections'
 import { RecipeView } from './_components/recipe-view'
 import { RecipeEditor } from './_components/recipe-editor'
+
+// Photo ingestion (scanRecipeAction, invoked from this route) calls Claude vision with
+// a 30s timeout — give the serverless function headroom above Vercel's default.
+export const maxDuration = 60
 
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -39,6 +44,8 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
   const translatedRecipe = recipe
     ? await translateRecipe(recipe, profile.restaurantId, lang, customUnitLabels)
     : null
+  // Cover photo: image_url holds the Storage object path; sign it for display.
+  const coverUrl = recipe?.imageUrl ? await getSignedUrl(recipe.imageUrl) : null
 
   // Translated ingredient names / step texts the viewer could correct.
   const corrections: Correctable[] = []
@@ -88,7 +95,13 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       </h1>
 
       {translatedRecipe ? (
-        <RecipeView recipe={translatedRecipe} itemId={item.id} canManage={canManage} lang={lang} />
+        <RecipeView
+          recipe={translatedRecipe}
+          itemId={item.id}
+          canManage={canManage}
+          lang={lang}
+          coverUrl={coverUrl}
+        />
       ) : canManage ? (
         <RecipeEditor itemId={item.id} initialIngredients={[]} initialSteps={[]} />
       ) : (
