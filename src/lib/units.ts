@@ -55,8 +55,10 @@ export const UNITS: {
 const UNIT_BY_VALUE = new Map(UNITS.map((u) => [u.value, u]))
 
 // numeric columns come back as strings (e.g. "1.50"); trim trailing zeros for display.
+// An empty string (a quantity-less recipe ingredient, e.g. "salt to taste") formats
+// to '' — NOT "0", which is what Number('') would otherwise yield.
 export function formatQuantity(q: string | null): string {
-  if (q == null) return ''
+  if (q == null || q.trim() === '') return ''
   const n = Number(q)
   return Number.isFinite(n) ? String(n) : q
 }

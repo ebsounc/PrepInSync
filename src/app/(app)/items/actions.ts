@@ -10,8 +10,13 @@ import {
   deletePrepItem,
   isPrepItemInUse,
   getPrepItemById,
+  setPrepItemImageUrl,
 } from '@/lib/db/queries/prep-items'
+import { createRecipe, getRecipeByItemId } from '@/lib/db/queries/recipes'
 import { isValidUnit } from '@/lib/db/queries/restaurant-units'
+import { uploadImage, deleteImage, deletePrefix, itemThumbPath } from '@/lib/storage'
+import { decodeImageInput } from '@/lib/images/validate'
+import { parseRecipeJson, recipeJsonHasContent, type ParsedRecipePayload } from '@/lib/recipes/payload'
 import { getDictionary, resolveKey, type Dict } from '@/lib/i18n'
 import { getActionDict } from '@/lib/i18n/server'
 
@@ -103,7 +108,18 @@ export async function createItemAction(
   const data = await parseItem(formData, ctx.restaurantId, ctx.dict)
   if ('error' in data) return { error: data.error }
 
-  await createPrepItem({
+  // Optional inline recipe ("+ Add recipe" in the create form). An opened-but-empty
+  // section is skipped; a started one must be complete. Validate BEFORE creating the
+  // item so an invalid recipe never leaves an orphan item.
+  const recipeRaw = String(formData.get('recipe') ?? '')
+  let recipe: ParsedRecipePayload | null = null
+  if (recipeRaw && recipeJsonHasContent(recipeRaw)) {
+    const parsed = parseRecipeJson(recipeRaw, ctx.dict)
+    if ('error' in parsed) return { error: parsed.error }
+    recipe = parsed
+  }
+
+  const item = await createPrepItem({
     restaurantId: ctx.restaurantId,
     name: data.name,
     description: data.description,
@@ -115,6 +131,19 @@ export async function createItemAction(
     sourceLanguage: ctx.profile.preferredLanguage,
     createdBy: ctx.profile.id,
   })
+
+  if (recipe) {
+    await createRecipe({
+      prepItemId: item.id,
+      restaurantId: ctx.restaurantId,
+      ingredients: recipe.ingredients,
+      instructions: recipe.instructions,
+      sourceLanguage: ctx.profile.preferredLanguage,
+      createdBy: ctx.profile.id,
+    })
+    // Prep-list entries show a "View recipe" badge keyed on recipe existence.
+    revalidatePath('/prep-lists', 'layout')
+  }
   revalidatePath('/items')
   return { success: true }
 }
@@ -157,7 +186,70 @@ export async function deleteItemAction(id: string): Promise<{ error?: string }> 
   if (await isPrepItemInUse(item.id)) {
     return { error: ctx.dict.errors.items.inUse }
   }
+  // The item's recipe (if any) cascades away in the DB, but its Storage cover photo
+  // does not — grab the recipe id before the delete so we can clean it up too.
+  const recipe = await getRecipeByItemId(item.id, ctx.restaurantId)
   await deletePrepItem(item.id, ctx.restaurantId)
+  // Best-effort Storage cleanup (thumbnail + any recipe cover), in parallel. Never
+  // blocks delete.
+  try {
+    await Promise.all([
+      deletePrefix(`${ctx.restaurantId}/items/${item.id}/`),
+      recipe ? deletePrefix(`${ctx.restaurantId}/recipes/${recipe.id}/`) : Promise.resolve(),
+    ])
+  } catch {}
+  revalidatePath('/items')
+  return {}
+}
+
+// Uploads (or replaces) a prep item's thumbnail. Stores the OBJECT PATH (not a
+// signed URL) on prep_items.image_url.
+export async function setItemImageAction(
+  itemId: string,
+  input: { imageBase64: string; mediaType: string }
+): Promise<{ error?: string }> {
+  const ctx = await requireBuilder()
+  if ('error' in ctx) return { error: ctx.error }
+
+  const id = z.string().uuid().safeParse(itemId)
+  if (!id.success) return { error: ctx.dict.errors.items.notFound }
+  const item = await getPrepItemById(id.data, ctx.restaurantId)
+  if (!item) return { error: ctx.dict.errors.items.notFound }
+
+  const decoded = decodeImageInput(input)
+  if ('code' in decoded) {
+    return {
+      error:
+        decoded.code === 'tooLarge'
+          ? ctx.dict.errors.items.imageTooLarge
+          : ctx.dict.errors.items.imageInvalid,
+    }
+  }
+
+  const path = itemThumbPath(ctx.restaurantId, id.data)
+  try {
+    await uploadImage(path, decoded.bytes, 'image/jpeg')
+  } catch {
+    return { error: ctx.dict.errors.items.imageUploadFailed }
+  }
+  await setPrepItemImageUrl(id.data, ctx.restaurantId, path)
+  revalidatePath('/items')
+  return {}
+}
+
+export async function removeItemImageAction(itemId: string): Promise<{ error?: string }> {
+  const ctx = await requireBuilder()
+  if ('error' in ctx) return { error: ctx.error }
+
+  const id = z.string().uuid().safeParse(itemId)
+  if (!id.success) return { error: ctx.dict.errors.items.notFound }
+  const item = await getPrepItemById(id.data, ctx.restaurantId)
+  if (!item) return { error: ctx.dict.errors.items.notFound }
+
+  await setPrepItemImageUrl(id.data, ctx.restaurantId, null)
+  try {
+    await deleteImage(itemThumbPath(ctx.restaurantId, id.data))
+  } catch {}
   revalidatePath('/items')
   return {}
 }

@@ -9,6 +9,7 @@
 -- supabase/add_*.sql file (and is listed in docs/database.md's RLS summary):
 --   - invites           → supabase/add_invites_table.sql
 --   - restaurant_units  → supabase/add_restaurant_units_rls.sql
+--   - storage (images)  → supabase/add_recipe_images_storage.sql
 -- A fresh setup must apply those too. RLS is required on EVERY table.
 -- =============================================================================
 

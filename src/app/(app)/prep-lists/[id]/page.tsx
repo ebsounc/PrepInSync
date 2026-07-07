@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getPrepListById, getPrepListEntries } from '@/lib/db/queries/prep-lists'
 import { getPrepItemsByRestaurant } from '@/lib/db/queries/prep-items'
+import { getRecipeItemIds } from '@/lib/db/queries/recipes'
 import { getRestaurantUnits } from '@/lib/db/queries/restaurant-units'
 import {
   translatePrepItems,
@@ -41,11 +42,15 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
     canManage ? getPrepItemsByRestaurant(profile.restaurantId) : Promise.resolve([]),
     getRestaurantUnits(profile.restaurantId),
   ])
-  const [entries, items, customUnitLabels, titleDisplay] = await Promise.all([
+  const [entries, items, customUnitLabels, titleDisplay, recipeItemIds] = await Promise.all([
     translatePrepListEntries(rawEntries, profile.restaurantId, lang),
     translatePrepItems(rawItems, profile.restaurantId, lang),
     getCustomUnitLabelMap(profile.restaurantId, lang),
     translateListTitle(list, profile.restaurantId, lang),
+    getRecipeItemIds(
+      profile.restaurantId,
+      rawEntries.map((e) => e.prepItemId)
+    ),
   ])
   const customUnits = units.map((u) => u.label)
   const dict = getDictionary(lang)
@@ -156,6 +161,7 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
               canManage={canManage}
               customUnits={customUnits}
               customUnitLabels={customUnitLabels}
+              hasRecipe={recipeItemIds.has(entry.prepItemId)}
               lang={lang}
               currentUserId={profile.id}
             />

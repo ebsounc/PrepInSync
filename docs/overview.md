@@ -140,11 +140,11 @@ This is Elijah's summer project. Target window: **6–10 weeks** of focused work
 
 Suggested build order (each phase depends on the previous):
 
-1. **Foundation** (week 1-2): stack decision, auth, account setup, role-based views, basic CRUD for items and prep lists. Boring but load-bearing.
-2. **Core workflow** (week 2-3): chef builds list → prep cook sees list → marks complete → chef sees status. End-to-end in English first.
-3. **Translation layer** (week 3-4): wire in LLM translation for items, units, notes. This is when the translation pre-test pays off — you'll be plugging tested phrases into a real flow.
-4. **Recipes — text first** (week 4-5): manual entry, paste-from-document. Translation pipeline already exists; recipes just feed into it.
-5. **Recipes — photo ingestion** (week 5-6): OCR + LLM parsing for binder photos. Built last in v1 because (a) the rest of the app teaches you what shape recipe data needs to land in, and (b) if this is harder than expected, you have a working product to ship.
+1. ✅ **Foundation** (week 1-2): stack decision, auth, account setup, role-based views, basic CRUD for items and prep lists. Boring but load-bearing.
+2. ✅ **Core workflow** (week 2-3): chef builds list → prep cook sees list → marks complete → chef sees status. End-to-end in English first.
+3. ✅ **Translation layer** (week 3-4): wire in LLM translation for items, units, notes. This is when the translation pre-test pays off — you'll be plugging tested phrases into a real flow.
+4. ✅ **Recipes — text first** (week 4-5): manual entry, paste-from-document. Translation pipeline already exists; recipes just feed into it. *Done — text-only (ingredients + steps + LLM paste-parse), attached per prep item, cook-viewable and translated. Recipe cover/step images were deferred to phase 5 alongside photo ingestion.*
+5. ✅ **Recipes — photo ingestion** (week 5-6): OCR + LLM parsing for binder photos. Built last in v1 because (a) the rest of the app teaches you what shape recipe data needs to land in, and (b) if this is harder than expected, you have a working product to ship. *(Includes the Supabase Storage setup + image upload deferred from phase 4.)* *Done — Claude vision scans a photo into the same review flow as paste (image sent inline, discarded); recipe cover photos + prep-item thumbnails persist to a private Supabase Storage bucket (path-scoped RLS, server-signed URLs). See `docs/phase-5-photo-and-storage.md`.*
 6. **Polish & graceful offline** (week 6-7): handle dead zones, polish UX, edge cases.
 
 Buffer for the unexpected: the realistic finish line is 8-10 weeks of focused work, not 6. Plan for 10 and feel like a winner at 8.

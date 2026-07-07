@@ -1,15 +1,25 @@
 'use client'
 
-import { useActionState, useEffect, useState, useTransition } from 'react'
-import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
+import Link from 'next/link'
+import { BookOpenIcon, CameraIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react'
 import {
   createItemAction,
   updateItemAction,
   deleteItemAction,
+  setItemImageAction,
+  removeItemImageAction,
   type ItemActionState,
 } from '../actions'
 import { addCustomUnitAction } from '../../_actions/units'
+import {
+  RecipeFields,
+  emptyIngredient,
+  serializeRecipe,
+} from '../[id]/recipe/_components/recipe-editor'
 import type { PrepItemDisplay } from '@/lib/translation/apply'
+import type { RecipeIngredient } from '@/lib/db/queries/recipes'
+import { downscaleToJpegBase64 } from '@/lib/images/downscale'
 import { formatAmount } from '@/lib/units'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -24,14 +34,19 @@ export function ItemsList({
   canManage,
   customUnits,
   customUnitLabels,
+  recipeItemIds,
+  itemImageUrls,
   lang,
 }: {
   items: PrepItemDisplay[]
   canManage: boolean
   customUnits: string[]
   customUnitLabels: Record<string, string>
+  recipeItemIds: string[]
+  itemImageUrls: Record<string, string>
   lang: 'en' | 'es'
 }) {
+  const recipeItems = new Set(recipeItemIds)
   const { dict } = useT()
   // Open inline when the catalog is empty; otherwise collapse to a button so the
   // list isn't pushed down by the form (and we avoid deeply nested dropdowns).
@@ -94,6 +109,8 @@ export function ItemsList({
               canManage={canManage}
               customUnits={customUnits}
               customUnitLabels={customUnitLabels}
+              hasRecipe={recipeItems.has(item.id)}
+              imageUrl={itemImageUrls[item.id] ?? null}
               lang={lang}
             />
           ))}
@@ -174,23 +191,33 @@ function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?
   const [showPar, setShowPar] = useState(false)
   const [parQty, setParQty] = useState('')
   const [parUnit, setParUnit] = useState('')
+  // Optional inline recipe (created together with the item on submit).
+  const [showRecipe, setShowRecipe] = useState(false)
+  const [ingredients, setIngredients] = useState<RecipeIngredient[]>([emptyIngredient()])
+  const [steps, setSteps] = useState<string[]>([''])
 
   useEffect(() => {
-    if (state?.success) {
-      setName('')
-      setDescription('')
-      setDefaultQty('')
-      setDefaultUnit('')
-      setShowPar(false)
-      setParQty('')
-      setParUnit('')
-    }
+    if (!state?.success) return
+    setName('')
+    setDescription('')
+    setDefaultQty('')
+    setDefaultUnit('')
+    setShowPar(false)
+    setParQty('')
+    setParUnit('')
+    setShowRecipe(false)
+    setIngredients([emptyIngredient()])
+    setSteps([''])
   }, [state])
 
   return (
     <form action={action} className="flex flex-col gap-3 rounded-xl border p-4">
       <h2 className="font-medium">{dict.items.addItemHeading}</h2>
       {state?.error && <ErrorBanner message={state.error} />}
+      {/* Recipe travels with the item; only submitted when the section is open. */}
+      {showRecipe && (
+        <input type="hidden" name="recipe" value={serializeRecipe(ingredients, steps)} />
+      )}
       <Field name="name">
         <FieldLabel>{dict.items.name}</FieldLabel>
         <Input
@@ -225,7 +252,30 @@ function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?
         placeholder={dict.items.defaultAmountPlaceholder}
         customUnits={customUnits}
       />
-      {showPar ? (
+      {showRecipe && (
+        <div className="flex flex-col gap-3 rounded-lg border p-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">{dict.recipes.recipeHeading}</h3>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9"
+              aria-label={dict.common.remove}
+              onClick={() => setShowRecipe(false)}
+            >
+              <XIcon />
+            </Button>
+          </div>
+          <RecipeFields
+            ingredients={ingredients}
+            setIngredients={setIngredients}
+            steps={steps}
+            setSteps={setSteps}
+          />
+        </div>
+      )}
+      {showPar && (
         <AmountFields
           label={dict.items.parLevel}
           quantityName="parQuantity"
@@ -237,16 +287,33 @@ function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?
           placeholder={dict.items.parLevelPlaceholder}
           customUnits={customUnits}
         />
-      ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="min-h-[44px] self-start"
-          onClick={() => setShowPar(true)}
-        >
-          <PlusIcon /> {dict.items.addParLevel}
-        </Button>
+      )}
+      {/* Collapsed "add" affordances share a row so they don't stack with dead space. */}
+      {(!showPar || !showRecipe) && (
+        <div className="flex flex-wrap gap-2">
+          {!showRecipe && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="min-h-[44px] flex-1"
+              onClick={() => setShowRecipe(true)}
+            >
+              <PlusIcon /> {dict.recipes.addRecipe}
+            </Button>
+          )}
+          {!showPar && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="min-h-[44px] flex-1"
+              onClick={() => setShowPar(true)}
+            >
+              <PlusIcon /> {dict.items.addParLevel}
+            </Button>
+          )}
+        </div>
       )}
       <div className="flex gap-2">
         <Button type="submit" className="min-h-[48px] flex-1 text-base" disabled={isPending}>
@@ -267,12 +334,16 @@ function ItemRow({
   canManage,
   customUnits,
   customUnitLabels,
+  hasRecipe,
+  imageUrl,
   lang,
 }: {
   item: PrepItemDisplay
   canManage: boolean
   customUnits: string[]
   customUnitLabels: Record<string, string>
+  hasRecipe: boolean
+  imageUrl: string | null
   lang: 'en' | 'es'
 }) {
   const { dict, t } = useT()
@@ -282,41 +353,72 @@ function ItemRow({
   const unitLabel = (u: string | null) => (u && customUnitLabels[u]) || u
 
   if (editing) {
-    return <EditItemForm item={item} customUnits={customUnits} onDone={() => setEditing(false)} />
+    return (
+      <EditItemForm
+        item={item}
+        customUnits={customUnits}
+        imageUrl={imageUrl}
+        onDone={() => setEditing(false)}
+      />
+    )
   }
 
+  // Cooks only see a link when a recipe exists; builders also get "Add recipe".
+  const showRecipeLink = hasRecipe || canManage
+
   return (
-    <li className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5">
-      <div className="min-w-0">
-        <div className="truncate font-medium">{item.nameDisplay}</div>
-        {item.descriptionDisplay && (
-          <div className="truncate text-sm text-muted-foreground">{item.descriptionDisplay}</div>
-        )}
-        {item.defaultQuantity && (
-          <div className="text-sm text-muted-foreground">
-            {dict.items.defaultLabel}: {formatAmount(item.defaultQuantity, unitLabel(item.defaultUnit), lang)}
+    <li className="flex flex-col rounded-lg border">
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+        <div className="flex min-w-0 items-center gap-3">
+          {imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- signed URL, not optimizable
+            <img
+              src={imageUrl}
+              alt={t(dict.items.photoAlt, { name: item.name })}
+              className="size-12 shrink-0 rounded-md border object-cover"
+            />
+          )}
+          <div className="min-w-0">
+            <div className="truncate font-medium">{item.nameDisplay}</div>
+          {item.descriptionDisplay && (
+            <div className="truncate text-sm text-muted-foreground">{item.descriptionDisplay}</div>
+          )}
+          {item.defaultQuantity && (
+            <div className="text-sm text-muted-foreground">
+              {dict.items.defaultLabel}: {formatAmount(item.defaultQuantity, unitLabel(item.defaultUnit), lang)}
+            </div>
+          )}
+          {item.parQuantity && (
+            <div className="text-sm text-muted-foreground">
+              {dict.items.parLabel}: {formatAmount(item.parQuantity, unitLabel(item.parUnit), lang)}
+            </div>
+          )}
           </div>
-        )}
-        {item.parQuantity && (
-          <div className="text-sm text-muted-foreground">
-            {dict.items.parLabel}: {formatAmount(item.parQuantity, unitLabel(item.parUnit), lang)}
+        </div>
+        {canManage && (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-11"
+              aria-label={t(dict.items.editAria, { name: item.name })}
+              onClick={() => setEditing(true)}
+            >
+              <PencilIcon />
+            </Button>
+            <DeleteItemButton id={item.id} name={item.name} />
           </div>
         )}
       </div>
-      {canManage && (
-        <div className="flex shrink-0 items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-11"
-            aria-label={t(dict.items.editAria, { name: item.name })}
-            onClick={() => setEditing(true)}
-          >
-            <PencilIcon />
-          </Button>
-          <DeleteItemButton id={item.id} name={item.name} />
-        </div>
+      {showRecipeLink && (
+        <Link
+          href={`/items/${item.id}/recipe`}
+          className="flex min-h-[44px] items-center gap-1.5 border-t px-3 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <BookOpenIcon className="size-4" />
+          {hasRecipe ? dict.recipes.viewRecipe : dict.recipes.addRecipe}
+        </Link>
       )}
     </li>
   )
@@ -350,13 +452,114 @@ function DeleteItemButton({ id, name }: { id: string; name: string }) {
   )
 }
 
+// Thumbnail preview + add/replace/remove, shown in the item edit form. Downscales
+// client-side; the action uploads to Storage + stores the path, then revalidatePath
+// re-renders the list with the fresh signed URL.
+function ItemPhotoControl({
+  itemId,
+  name,
+  imageUrl,
+}: {
+  itemId: string
+  name: string
+  imageUrl: string | null
+}) {
+  const { dict, t } = useT()
+  const [pending, start] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    start(async () => {
+      setError(null)
+      let img
+      try {
+        img = await downscaleToJpegBase64(file)
+      } catch (err) {
+        setError(
+          err instanceof Error && err.message === 'IMAGE_TOO_LARGE'
+            ? dict.errors.items.imageTooLarge
+            : dict.errors.items.imageInvalid
+        )
+        return
+      }
+      const res = await setItemImageAction(itemId, { imageBase64: img.base64, mediaType: img.mediaType })
+      if (res.error) setError(res.error)
+    })
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- signed URL, not optimizable
+          <img
+            src={imageUrl}
+            alt={t(dict.items.photoAlt, { name })}
+            className="size-16 shrink-0 rounded-md border object-cover"
+          />
+        ) : (
+          <div className="flex size-16 shrink-0 items-center justify-center rounded-md border text-muted-foreground">
+            <CameraIcon className="size-5" />
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={onFile}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[44px]"
+            disabled={pending}
+            onClick={() => inputRef.current?.click()}
+          >
+            {pending ? <Loader2Icon className="size-4 animate-spin" /> : <CameraIcon className="size-4" />}{' '}
+            {imageUrl ? dict.items.replacePhoto : dict.items.addPhoto}
+          </Button>
+          {imageUrl && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="min-h-[44px] text-destructive"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  setError(null)
+                  const res = await removeItemImageAction(itemId)
+                  if (res.error) setError(res.error)
+                })
+              }
+            >
+              <XIcon className="size-4" /> {dict.items.removePhoto}
+            </Button>
+          )}
+        </div>
+      </div>
+      {error && <span className="text-xs text-destructive">{error}</span>}
+    </div>
+  )
+}
+
 function EditItemForm({
   item,
   customUnits,
+  imageUrl,
   onDone,
 }: {
   item: PrepItemDisplay
   customUnits: string[]
+  imageUrl: string | null
   onDone: () => void
 }) {
   const { dict } = useT()
@@ -378,6 +581,7 @@ function EditItemForm({
     <form action={action} className="flex flex-col gap-3 rounded-lg border p-3">
       <input type="hidden" name="id" value={item.id} />
       {state?.error && <ErrorBanner message={state.error} />}
+      <ItemPhotoControl itemId={item.id} name={item.name} imageUrl={imageUrl} />
       <Field name="name">
         <FieldLabel>{dict.items.name}</FieldLabel>
         <Input
