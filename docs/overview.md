@@ -145,7 +145,8 @@ Suggested build order (each phase depends on the previous):
 3. ✅ **Translation layer** (week 3-4): wire in LLM translation for items, units, notes. This is when the translation pre-test pays off — you'll be plugging tested phrases into a real flow.
 4. ✅ **Recipes — text first** (week 4-5): manual entry, paste-from-document. Translation pipeline already exists; recipes just feed into it. *Done — text-only (ingredients + steps + LLM paste-parse), attached per prep item, cook-viewable and translated. Recipe cover/step images were deferred to phase 5 alongside photo ingestion.*
 5. ✅ **Recipes — photo ingestion** (week 5-6): OCR + LLM parsing for binder photos. Built last in v1 because (a) the rest of the app teaches you what shape recipe data needs to land in, and (b) if this is harder than expected, you have a working product to ship. *(Includes the Supabase Storage setup + image upload deferred from phase 4.)* *Done — Claude vision scans a photo into the same review flow as paste (image sent inline, discarded); recipe cover photos + prep-item thumbnails persist to a private Supabase Storage bucket (path-scoped RLS, server-signed URLs). See `docs/phase-5-photo-and-storage.md`.*
-6. **Polish & graceful offline** (week 6-7): handle dead zones, polish UX, edge cases.
+6. ✅ **Branding & UI** (week 6-7): named the product **PrepInSync**; reworked the visual design (Sora, green accent with a user-switchable palette, light/dark themes, shared `PageHeader`). Logo still outstanding.
+7. **Release readiness** (week 7-8): graceful offline / dead zones, per-user theme persistence, searchable item picker, logo, README + a living feature list. See `docs/phase-7-kickoff.md`.
 
 Buffer for the unexpected: the realistic finish line is 8-10 weeks of focused work, not 6. Plan for 10 and feel like a winner at 8.
 
@@ -156,10 +157,11 @@ The build phase is going to feel like home turf. Discipline to maintain: ship v1
 ## What's NOT in this doc yet
 
 - Pricing.
-- Naming.
 - Marketing / go-to-market plan beyond white-glove for first customers.
 
 Each of these gets its own decision moment — none of them block starting the build.
+
+Naming is settled: **PrepInSync** (decided in phase 6, checked for conflicts — `KitchenSync` is taken by a direct competitor).
 
 ---
 
