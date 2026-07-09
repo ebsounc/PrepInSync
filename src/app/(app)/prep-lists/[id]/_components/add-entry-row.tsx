@@ -132,7 +132,7 @@ function AddEntryForm({
   }
 
   return (
-    <form ref={formRef} action={action} className="flex flex-col gap-3 rounded-xl border p-4">
+    <form ref={formRef} action={action} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
       <input type="hidden" name="prepListId" value={listId} />
       <input type="hidden" name="prepItemId" value={itemId} />
       <input type="hidden" name="isStarred" value={starred ? 'true' : 'false'} />

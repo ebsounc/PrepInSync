@@ -40,8 +40,11 @@ export function EditListForm({
   if (!editing) {
     return (
       <div className="min-w-0">
-        <div className="flex items-center gap-1.5">
-          <h1 className="truncate text-2xl font-semibold">{titleDisplay}</h1>
+        <div className="flex items-start gap-1.5">
+          {/* Title wraps onto more lines rather than truncating on narrow screens. */}
+          <h1 className="text-2xl font-bold leading-tight tracking-tight text-balance break-words sm:text-3xl">
+            {titleDisplay}
+          </h1>
           {canManage && (
             <Button
               type="button"

@@ -101,7 +101,7 @@ export function ItemsList({
           {canManage ? dict.items.noItemsBuilder : dict.items.noItemsViewer}
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2.5">
           {items.map((item) => (
             <ItemRow
               key={item.id}
@@ -211,7 +211,7 @@ function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?
   }, [state])
 
   return (
-    <form action={action} className="flex flex-col gap-3 rounded-xl border p-4">
+    <form action={action} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
       <h2 className="font-medium">{dict.items.addItemHeading}</h2>
       {state?.error && <ErrorBanner message={state.error} />}
       {/* Recipe travels with the item; only submitted when the section is open. */}
@@ -367,8 +367,8 @@ function ItemRow({
   const showRecipeLink = hasRecipe || canManage
 
   return (
-    <li className="flex flex-col rounded-lg border">
-      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+    <li className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-2 px-3.5 py-3">
         <div className="flex min-w-0 items-center gap-3">
           {imageUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- signed URL, not optimizable
@@ -414,7 +414,7 @@ function ItemRow({
       {showRecipeLink && (
         <Link
           href={`/items/${item.id}/recipe`}
-          className="flex min-h-[44px] items-center gap-1.5 border-t px-3 text-sm text-muted-foreground hover:text-foreground"
+          className="flex min-h-[44px] items-center gap-1.5 border-t px-3.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
         >
           <BookOpenIcon className="size-4" />
           {hasRecipe ? dict.recipes.viewRecipe : dict.recipes.addRecipe}
@@ -578,7 +578,7 @@ function EditItemForm({
   }, [state, onDone])
 
   return (
-    <form action={action} className="flex flex-col gap-3 rounded-lg border p-3">
+    <form action={action} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
       <input type="hidden" name="id" value={item.id} />
       {state?.error && <ErrorBanner message={state.error} />}
       <ItemPhotoControl itemId={item.id} name={item.name} imageUrl={imageUrl} />

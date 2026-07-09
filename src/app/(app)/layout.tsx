@@ -48,9 +48,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <LanguageProvider dict={dict} lang={lang}>
       <div className="flex min-h-svh flex-col">
-        <header className="flex h-14 items-center justify-between border-b px-4 sm:px-6">
-          <span className="font-semibold">{dict.appShell.brand}</span>
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-md sm:px-6">
+          <span className="text-[15px] font-semibold tracking-tight">{dict.appShell.brand}</span>
+          <div className="flex items-center gap-1 sm:gap-2">
             <span className="hidden text-sm text-muted-foreground sm:block">{displayName}</span>
             {onboarded && isManagement && (
               <Button

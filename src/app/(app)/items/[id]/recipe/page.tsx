@@ -90,7 +90,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       >
         <ArrowLeftIcon className="size-4" /> {dict.recipes.back}
       </Link>
-      <h1 className="mb-4 text-2xl font-semibold">
+      <h1 className="mb-4 text-2xl font-bold tracking-tight sm:text-3xl">
         {interpolate(dict.recipes.recipeFor, { item: itemName })}
       </h1>
 

@@ -2,8 +2,10 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getRestaurantById } from '@/lib/db/queries/restaurants'
+import { ClipboardListIcon } from 'lucide-react'
 import { getDictionary, interpolate } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageHeader } from '@/components/page-header'
 import { NewListForm } from './_components/new-list-form'
 
 export default async function NewPrepListPage() {
@@ -46,7 +48,7 @@ export default async function NewPrepListPage() {
 
   return (
     <div className="mx-auto max-w-md p-4 sm:p-6">
-      <h1 className="mb-4 text-2xl font-semibold">{dict.prepLists.newListHeading}</h1>
+      <PageHeader icon={ClipboardListIcon} title={dict.prepLists.newListHeading} />
       <Card>
         <CardHeader>
           <CardTitle>{dict.prepLists.detailsCard}</CardTitle>

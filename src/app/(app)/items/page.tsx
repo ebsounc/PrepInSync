@@ -6,7 +6,9 @@ import { getRecipeItemIds } from '@/lib/db/queries/recipes'
 import { getRestaurantUnits } from '@/lib/db/queries/restaurant-units'
 import { getSignedUrls } from '@/lib/storage'
 import { translatePrepItems, getCustomUnitLabelMap } from '@/lib/translation/apply'
+import { UtensilsCrossedIcon } from 'lucide-react'
 import { getDictionary } from '@/lib/i18n'
+import { PageHeader } from '@/components/page-header'
 import { ItemsList } from './_components/items-list'
 
 export default async function ItemsPage() {
@@ -44,7 +46,7 @@ export default async function ItemsPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
-      <h1 className="mb-4 text-2xl font-semibold">{getDictionary(lang).items.heading}</h1>
+      <PageHeader icon={UtensilsCrossedIcon} title={getDictionary(lang).items.heading} />
       <ItemsList
         items={translatedItems}
         canManage={profile.canCreateLists}

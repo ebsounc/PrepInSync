@@ -18,12 +18,13 @@ export function PrepListCard({
   return (
     <Link
       href={`/prep-lists/${list.id}`}
-      className="block min-h-[44px] rounded-lg border p-4 transition-colors hover:bg-muted/50"
+      className="block min-h-[44px] rounded-xl border bg-card p-4 shadow-sm transition-colors hover:bg-muted/30"
     >
       <div className="flex items-baseline justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-1.5 font-medium">
-          {complete && <CheckCircle2Icon className="size-4 shrink-0 text-primary" />}
-          <span className="truncate">{list.titleDisplay}</span>
+        {/* Title wraps onto more lines rather than truncating on narrow screens. */}
+        <span className="flex min-w-0 items-start gap-1.5 font-medium">
+          {complete && <CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-primary" />}
+          <span className="break-words">{list.titleDisplay}</span>
         </span>
         <span className="shrink-0 text-sm text-muted-foreground">{formatListDate(list.date, lang)}</span>
       </div>

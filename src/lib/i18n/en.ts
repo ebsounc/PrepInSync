@@ -28,8 +28,9 @@ export const en = {
     team: 'Team',
   },
   appShell: {
-    brand: 'KitchenPrep',
+    brand: 'PrepInSync',
     settingsAria: 'Settings',
+    toggleTheme: 'Toggle light / dark',
     deactivatedTitle: 'Account deactivated',
     deactivatedBody:
       'Your access to this kitchen has been turned off. Contact your manager if you think this is a mistake.',
@@ -157,6 +158,13 @@ export const en = {
   },
   settings: {
     heading: 'Settings',
+    appearanceTitle: 'Appearance',
+    appearanceDesc: 'Theme and accent color for this device.',
+    themeLabel: 'Theme',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    accentLabel: 'Accent color',
+    accentCustom: 'Custom color',
     languageTitle: 'Language',
     languageDesc: 'The language you read and write prep lists in.',
     saveLanguage: 'Save language',
@@ -210,7 +218,7 @@ export const en = {
     reactivate: 'Reactivate',
   },
   onboarding: {
-    brand: 'KitchenPrep',
+    brand: 'PrepInSync',
     title: 'Set up your restaurant',
     desc: "A few quick details and you're ready to go.",
     restaurantName: 'Restaurant name',
@@ -220,11 +228,11 @@ export const en = {
     submit: 'Create my restaurant',
   },
   auth: {
-    brand: 'KitchenPrep',
+    brand: 'PrepInSync',
     loginTitle: 'Welcome back',
     loginDesc: 'Sign in to your account',
     signupTitle: 'Create your account',
-    signupDesc: 'Set up your restaurant on KitchenPrep',
+    signupDesc: 'Set up your restaurant on PrepInSync',
     forgotTitle: 'Reset your password',
     forgotDesc: "Enter your email and we'll send you a reset link",
     resetTitle: 'Set new password',

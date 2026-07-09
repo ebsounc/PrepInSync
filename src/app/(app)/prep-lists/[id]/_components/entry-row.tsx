@@ -87,7 +87,7 @@ function DisplayEntry({
   const displayUnit = customUnitLabels[entry.unit] ?? entry.unit
 
   return (
-    <li className={cn('rounded-lg border', entry.completed && 'bg-muted/40')}>
+    <li className={cn('overflow-hidden rounded-xl border shadow-sm', entry.completed ? 'bg-muted/40' : 'bg-card')}>
       <div className="flex items-stretch">
         {/* The whole left region is the completion toggle — a big greasy-hands target. */}
         <button
@@ -321,7 +321,7 @@ function EditEntryForm({
   }, [state, onDone])
 
   return (
-    <li className="rounded-lg border p-3">
+    <li className="rounded-xl border bg-card p-4 shadow-sm">
       <form action={action} className="flex flex-col gap-3">
         <input type="hidden" name="entryId" value={entry.id} />
         <input type="hidden" name="isStarred" value={starred ? 'true' : 'false'} />
