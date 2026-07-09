@@ -22,8 +22,9 @@ export const es: Dict = {
     team: 'Equipo',
   },
   appShell: {
-    brand: 'KitchenPrep',
+    brand: 'PrepInSync',
     settingsAria: 'Ajustes',
+    toggleTheme: 'Cambiar claro / oscuro',
     deactivatedTitle: 'Cuenta desactivada',
     deactivatedBody:
       'Tu acceso a esta cocina ha sido desactivado. Contacta a tu gerente si crees que es un error.',
@@ -152,6 +153,13 @@ export const es: Dict = {
   },
   settings: {
     heading: 'Ajustes',
+    appearanceTitle: 'Apariencia',
+    appearanceDesc: 'Tema y color de acento para este dispositivo.',
+    themeLabel: 'Tema',
+    themeLight: 'Claro',
+    themeDark: 'Oscuro',
+    accentLabel: 'Color de acento',
+    accentCustom: 'Color personalizado',
     languageTitle: 'Idioma',
     languageDesc: 'El idioma en el que lees y escribes las listas de preparación.',
     saveLanguage: 'Guardar idioma',
@@ -208,7 +216,7 @@ export const es: Dict = {
     reactivate: 'Reactivar',
   },
   onboarding: {
-    brand: 'KitchenPrep',
+    brand: 'PrepInSync',
     title: 'Configura tu restaurante',
     desc: 'Unos cuantos datos rápidos y estarás listo.',
     restaurantName: 'Nombre del restaurante',
@@ -218,11 +226,11 @@ export const es: Dict = {
     submit: 'Crear mi restaurante',
   },
   auth: {
-    brand: 'KitchenPrep',
+    brand: 'PrepInSync',
     loginTitle: 'Bienvenido de nuevo',
     loginDesc: 'Inicia sesión en tu cuenta',
     signupTitle: 'Crea tu cuenta',
-    signupDesc: 'Configura tu restaurante en KitchenPrep',
+    signupDesc: 'Configura tu restaurante en PrepInSync',
     forgotTitle: 'Restablece tu contraseña',
     forgotDesc: 'Ingresa tu correo y te enviaremos un enlace para restablecerla',
     resetTitle: 'Establecer nueva contraseña',

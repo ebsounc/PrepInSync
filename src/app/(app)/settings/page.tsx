@@ -3,13 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId, getProfilesByRestaurant } from '@/lib/db/queries/profiles'
 import { getRestaurantById } from '@/lib/db/queries/restaurants'
 import { getRestaurantUnits } from '@/lib/db/queries/restaurant-units'
+import { SettingsIcon } from 'lucide-react'
 import { isManagementRole } from '@/lib/auth/roles'
 import { getDictionary } from '@/lib/i18n'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageHeader } from '@/components/page-header'
 import { RestaurantForm } from './_components/restaurant-form'
 import { UnitsManager } from './_components/units-manager'
 import { TransferOwnership } from './_components/transfer-ownership'
 import { LanguageForm } from './_components/language-form'
+import { AppearanceForm } from './_components/appearance-form'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -40,7 +43,17 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold">{dict.settings.heading}</h1>
+      <PageHeader icon={SettingsIcon} title={dict.settings.heading} className="mb-0" />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{dict.settings.appearanceTitle}</CardTitle>
+          <CardDescription>{dict.settings.appearanceDesc}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AppearanceForm />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

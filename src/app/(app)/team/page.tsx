@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId, getProfilesByRestaurant } from '@/lib/db/queries/profiles'
+import { UsersIcon } from 'lucide-react'
 import { isManagementRole } from '@/lib/auth/roles'
 import { getDictionary } from '@/lib/i18n'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageHeader } from '@/components/page-header'
 import { InviteForm } from './_components/invite-form'
 import { Roster } from './_components/roster'
 
@@ -32,7 +34,7 @@ export default async function TeamPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
-      <h1 className="mb-6 text-2xl font-semibold">{dict.team.heading}</h1>
+      <PageHeader icon={UsersIcon} title={dict.team.heading} className="mb-6" />
 
       <div className="mx-auto mb-8 max-w-sm">
         <Card>

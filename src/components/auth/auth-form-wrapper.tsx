@@ -13,7 +13,7 @@ export default function AuthFormWrapper({
     <div className="flex min-h-svh flex-col items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <span className="text-2xl font-bold tracking-tight">KitchenPrep</span>
+          <span className="text-2xl font-bold tracking-tight">PrepInSync</span>
         </div>
         <Card>
           <CardHeader>

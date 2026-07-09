@@ -19,7 +19,7 @@ export function BottomNav({ showTeam }: { showTeam: boolean }) {
   const tabs = TABS.filter((t) => !('management' in t && t.management) || showTeam)
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md">
       <ul className="mx-auto flex max-w-2xl">
         {tabs.map(({ href, key, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`)
@@ -30,11 +30,19 @@ export function BottomNav({ showTeam }: { showTeam: boolean }) {
                 href={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-1.5 text-xs font-medium transition-colors',
+                  'flex min-h-[56px] flex-col items-center justify-center gap-1 py-1.5 text-[11px] font-medium transition-colors',
                   active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <Icon className="size-5" />
+                {/* Tinted accent pill behind the active tab's icon */}
+                <span
+                  className={cn(
+                    'flex h-7 w-12 items-center justify-center rounded-full transition-colors',
+                    active && 'bg-primary/12'
+                  )}
+                >
+                  <Icon className="size-[22px]" strokeWidth={active ? 2.4 : 2} />
+                </span>
                 {label}
               </Link>
             </li>

@@ -24,7 +24,7 @@ export function Roster({
   currentUserId: string
 }) {
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex flex-col gap-2.5">
       {members.map((m) => (
         <MemberRow key={m.id} member={m} isSelf={m.id === currentUserId} />
       ))}
@@ -87,7 +87,7 @@ function MemberRow({ member, isSelf }: { member: Profile; isSelf: boolean }) {
     })
 
   return (
-    <li className={cn('rounded-lg border p-3', !member.isActive && 'opacity-60')}>
+    <li className={cn('rounded-xl border bg-card p-3.5 shadow-sm', !member.isActive && 'opacity-60')}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate font-medium">

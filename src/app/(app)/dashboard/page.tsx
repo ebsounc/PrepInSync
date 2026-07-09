@@ -54,12 +54,13 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
-      <div className="mb-5 flex items-center justify-between gap-3">
+      <div className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold">
+          {/* Wraps to a second line rather than truncating the name on narrow screens. */}
+          <h1 className="text-2xl font-bold leading-tight tracking-tight text-balance sm:text-3xl">
             {interpolate(dict.dashboard.greetingName, { greeting, name: profile.firstName })}
           </h1>
-          <p className="text-sm text-muted-foreground">{formatListDate(today, lang)}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{formatListDate(today, lang)}</p>
         </div>
         {profile.canCreateLists && (
           <Button
@@ -74,13 +75,13 @@ export default async function DashboardPage() {
 
       <h2 className="mb-2 text-sm font-medium text-muted-foreground">{dict.dashboard.todaysPrep}</h2>
       {todays.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
+        <div className="rounded-xl border border-dashed bg-card/50 p-8 text-center text-muted-foreground">
           <ClipboardListIcon className="mx-auto mb-2 size-6" />
           <p>{dict.dashboard.noListsToday}</p>
           {profile.canCreateLists && <p className="mt-1 text-sm">{dict.dashboard.createToStart}</p>}
         </div>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2.5">
           {todaysWithEntries.map(({ list, entries }) => (
             <li key={list.id}>
               <PrepListCard list={list} entries={entries} lang={lang} />
