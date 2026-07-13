@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button'
 import { UnitSelect } from '@/components/unit-select'
 import { TranslationCorrections, type Correctable } from '@/components/translation-corrections'
 import { useT } from '@/lib/i18n/client'
+import { normalizeForSearch } from '@/lib/utils'
 
 export function ItemsList({
   items,
@@ -51,6 +52,17 @@ export function ItemsList({
   // Open inline when the catalog is empty; otherwise collapse to a button so the
   // list isn't pushed down by the form (and we avoid deeply nested dropdowns).
   const [expanded, setExpanded] = useState(items.length === 0)
+  // Client-side filter — matches the translated and source names (items already ship
+  // in full, so this adds no payload or round-trip).
+  const [filter, setFilter] = useState('')
+  const q = normalizeForSearch(filter.trim())
+  const filtered = q
+    ? items.filter(
+        (i) =>
+          normalizeForSearch(i.nameDisplay).includes(q) ||
+          normalizeForSearch(i.name).includes(q)
+      )
+    : items
 
   // Translated fields the viewer could correct (only when actually translated).
   const corrections: Correctable[] = []
@@ -96,13 +108,24 @@ export function ItemsList({
             <PlusIcon /> {dict.items.addItem}
           </Button>
         ))}
+      {items.length > 0 && (
+        <Input
+          type="search"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder={dict.items.filterPlaceholder}
+          aria-label={dict.items.filterPlaceholder}
+        />
+      )}
       {items.length === 0 ? (
         <p className="text-muted-foreground">
           {canManage ? dict.items.noItemsBuilder : dict.items.noItemsViewer}
         </p>
+      ) : filtered.length === 0 ? (
+        <p className="text-muted-foreground">{dict.items.noItemsMatch}</p>
       ) : (
         <ul className="flex flex-col gap-2.5">
-          {items.map((item) => (
+          {filtered.map((item) => (
             <ItemRow
               key={item.id}
               item={item}

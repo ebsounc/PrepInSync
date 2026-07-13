@@ -1,75 +1,99 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
+import { Loader2Icon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useT } from '@/lib/i18n/client'
+import { ACCENTS, applyAccent, type Theme } from '@/lib/appearance'
+import { Button } from '@/components/ui/button'
+import { updateAppearanceAction } from '../actions'
+import type { SettingsState } from '../actions'
 
-// Appearance is a per-device preference stored in localStorage and applied via CSS
-// vars / the .dark class (the no-flash script in the root layout re-applies it on
-// load). Green is the baked default — the "Green" accent below just clears any
-// override back to it.
-const ACCENTS: { key: string; value: string | null; swatch: string }[] = [
-  { key: 'green', value: null, swatch: 'oklch(0.58 0.15 152)' },
-  { key: 'teal', value: 'oklch(0.62 0.11 190)', swatch: 'oklch(0.62 0.11 190)' },
-  { key: 'sky', value: 'oklch(0.62 0.13 230)', swatch: 'oklch(0.62 0.13 230)' },
-  { key: 'blue', value: 'oklch(0.55 0.19 255)', swatch: 'oklch(0.55 0.19 255)' },
-  { key: 'indigo', value: 'oklch(0.5 0.21 272)', swatch: 'oklch(0.5 0.21 272)' },
-  { key: 'violet', value: 'oklch(0.56 0.22 300)', swatch: 'oklch(0.56 0.22 300)' },
-  { key: 'rose', value: 'oklch(0.6 0.2 12)', swatch: 'oklch(0.6 0.2 12)' },
-  { key: 'amber', value: 'oklch(0.72 0.16 70)', swatch: 'oklch(0.72 0.16 70)' },
-]
+// Appearance persists to the user's profile (so it follows them across devices) via
+// updateAppearanceAction, mirroring the language form. Selections apply to the DOM
+// immediately for a live preview; Save persists them. localStorage is kept in sync on
+// save only as the logged-out fallback (the no-flash script prefers the cookie).
 
-function applyAccent(value: string | null) {
-  const root = document.documentElement
-  for (const prop of ['--primary', '--ring', '--sidebar-primary']) {
-    if (value) root.style.setProperty(prop, value)
-    else root.style.removeProperty(prop)
-  }
+function applyTheme(t: Theme) {
+  const dark =
+    t === 'dark' ||
+    (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  document.documentElement.classList.toggle('dark', dark)
 }
 
-export function AppearanceForm() {
+export function AppearanceForm({
+  currentTheme,
+  currentAccent,
+}: {
+  currentTheme: Theme
+  currentAccent: string | null
+}) {
   const { dict } = useT()
-  const [mounted, setMounted] = useState(false)
-  const [dark, setDark] = useState(false)
-  const [accent, setAccent] = useState<string | null>(null)
+  const [state, action, isPending] = useActionState<SettingsState, FormData>(
+    updateAppearanceAction,
+    null
+  )
+  const [theme, setTheme] = useState<Theme>(currentTheme)
+  const [accent, setAccent] = useState<string | null>(currentAccent)
 
+  // Sync localStorage on a successful save (logged-out fallback). Read via refs so the
+  // effect can key on `state` alone and never fire on an unsaved selection change.
+  const themeRef = useRef(theme)
+  const accentRef = useRef(accent)
+  themeRef.current = theme
+  accentRef.current = accent
   useEffect(() => {
-    setDark(document.documentElement.classList.contains('dark'))
-    setAccent(localStorage.getItem('pis-accent'))
-    setMounted(true)
-  }, [])
+    if (!state?.success) return
+    localStorage.setItem('theme', themeRef.current)
+    if (accentRef.current) localStorage.setItem('pis-accent', accentRef.current)
+    else localStorage.removeItem('pis-accent')
+  }, [state])
 
-  function chooseTheme(nextDark: boolean) {
-    setDark(nextDark)
-    document.documentElement.classList.toggle('dark', nextDark)
-    localStorage.setItem('theme', nextDark ? 'dark' : 'light')
+  function chooseTheme(next: Theme) {
+    setTheme(next)
+    applyTheme(next)
   }
 
   function chooseAccent(value: string | null) {
     setAccent(value)
     applyAccent(value)
-    if (value) localStorage.setItem('pis-accent', value)
-    else localStorage.removeItem('pis-accent')
   }
 
+  const dirty = theme !== currentTheme || accent !== currentAccent
+
+  const themeOptions: { value: Theme; label: string }[] = [
+    { value: 'light', label: dict.settings.themeLight },
+    { value: 'dark', label: dict.settings.themeDark },
+    { value: 'system', label: dict.settings.themeSystem },
+  ]
+
   return (
-    <div className="flex flex-col gap-5">
+    <form action={action} className="flex flex-col gap-5">
+      <input type="hidden" name="theme" value={theme} />
+      <input type="hidden" name="accent" value={accent ?? ''} />
+
+      {state?.error && (
+        <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+          {state.error}
+        </div>
+      )}
+      {state?.success && (
+        <p className="text-sm text-muted-foreground">{dict.common.saved}</p>
+      )}
+
       {/* Theme */}
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium">{dict.settings.themeLabel}</span>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { d: false, label: dict.settings.themeLight },
-            { d: true, label: dict.settings.themeDark },
-          ].map(({ d, label }) => (
+        <div className="grid grid-cols-3 gap-2">
+          {themeOptions.map(({ value, label }) => (
             <button
-              key={label}
+              key={value}
               type="button"
-              aria-pressed={mounted && dark === d}
-              onClick={() => chooseTheme(d)}
+              aria-pressed={theme === value}
+              onClick={() => chooseTheme(value)}
               className={cn(
                 'min-h-[48px] rounded-lg border text-base font-medium transition-colors',
-                mounted && dark === d
+                theme === value
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-muted/50'
               )}
@@ -89,12 +113,12 @@ export function AppearanceForm() {
               key={a.key}
               type="button"
               aria-label={a.key}
-              aria-pressed={mounted && accent === a.value}
+              aria-pressed={accent === a.value}
               onClick={() => chooseAccent(a.value)}
               className="size-9 rounded-full border transition-transform hover:scale-105"
               style={{
                 background: a.swatch,
-                outline: mounted && accent === a.value ? '2px solid var(--foreground)' : 'none',
+                outline: accent === a.value ? '2px solid var(--foreground)' : 'none',
                 outlineOffset: '2px',
               }}
             />
@@ -112,6 +136,10 @@ export function AppearanceForm() {
           </label>
         </div>
       </div>
-    </div>
+
+      <Button type="submit" className="min-h-[48px] self-start" disabled={isPending || !dirty}>
+        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.settings.saveAppearance}
+      </Button>
+    </form>
   )
 }

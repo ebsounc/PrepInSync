@@ -1,9 +1,11 @@
 import { type EmailOtpType } from '@supabase/supabase-js'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { updateProfile } from '@/lib/db/queries/profiles'
+import { getProfileByUserId, updateProfile } from '@/lib/db/queries/profiles'
 import { getPendingInviteByEmail, markInviteAccepted } from '@/lib/db/queries/invites'
 import { isInvitableRole } from '@/lib/auth/roles'
+import { isValidAccent } from '@/lib/appearance'
+import { APPEARANCE_COOKIE_OPTS } from '@/lib/appearance-cookies'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -29,17 +31,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
+  let destination = '/login'
   if (type === 'email') {
     // Email confirmation after signup — proceed to restaurant onboarding
-    return NextResponse.redirect(new URL('/onboarding', request.url))
-  }
-
-  if (type === 'recovery') {
+    destination = '/onboarding'
+  } else if (type === 'recovery') {
     // Password reset link
-    return NextResponse.redirect(new URL('/reset-password', request.url))
-  }
-
-  if (type === 'invite') {
+    destination = '/reset-password'
+  } else if (type === 'invite') {
     // Invite acceptance — apply the restaurant/role from the trusted invites
     // row (matched on the verified email), not from user-editable metadata.
     if (user.email) {
@@ -53,9 +52,22 @@ export async function GET(request: NextRequest) {
         await markInviteAccepted(invite.id)
       }
     }
-
-    return NextResponse.redirect(new URL('/set-password', request.url))
+    destination = '/set-password'
   }
 
-  return NextResponse.redirect(new URL('/login', request.url))
+  const res = NextResponse.redirect(new URL(destination, request.url))
+
+  // Seed the appearance cookies from this user's profile. These branches create a
+  // session without going through loginAction, so on a shared device a stale theme
+  // cookie from a previous user would otherwise be treated as authoritative by the
+  // root layout. Set on the response directly (reliable for route-handler redirects).
+  const profile = await getProfileByUserId(user.id)
+  if (profile) {
+    res.cookies.set('theme', profile.theme, APPEARANCE_COOKIE_OPTS)
+    const accent = isValidAccent(profile.accentColor) ? profile.accentColor : null
+    if (accent) res.cookies.set('accent', accent, APPEARANCE_COOKIE_OPTS)
+    else res.cookies.delete({ name: 'accent', path: '/' })
+  }
+
+  return res
 }

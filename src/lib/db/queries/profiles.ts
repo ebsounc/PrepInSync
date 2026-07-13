@@ -15,6 +15,16 @@ export async function setPreferredLanguage(userId: string, lang: 'en' | 'es') {
   await db.update(profiles).set({ preferredLanguage: lang }).where(eq(profiles.id, userId))
 }
 
+// Self-service: a user sets their own appearance (any member). accentColor null
+// clears back to the baked-in default. Validate accentColor before calling.
+export async function setAppearance(
+  userId: string,
+  theme: 'light' | 'dark' | 'system',
+  accentColor: string | null
+) {
+  await db.update(profiles).set({ theme, accentColor }).where(eq(profiles.id, userId))
+}
+
 export async function getProfilesByRestaurant(restaurantId: string): Promise<Profile[]> {
   return db
     .select()

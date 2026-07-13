@@ -9,7 +9,10 @@ import {
   getProfileByUserId,
   transferOwnership,
   setPreferredLanguage,
+  setAppearance,
 } from '@/lib/db/queries/profiles'
+import { setAppearanceCookies } from '@/lib/appearance-cookies'
+import { isValidAccent } from '@/lib/appearance'
 import { updateRestaurant } from '@/lib/db/queries/restaurants'
 import { deleteRestaurantUnit } from '@/lib/db/queries/restaurant-units'
 import { isManagementRole } from '@/lib/auth/roles'
@@ -93,6 +96,39 @@ export async function updateLanguageAction(
   await setPreferredLanguage(user.id, parsed.data)
   // Keep the cookie in sync so logged-out pages + <html lang> reflect the choice.
   await setCookieLang(parsed.data)
+  revalidatePath('/', 'layout')
+  return { success: true }
+}
+
+// Appearance (theme + accent) is a per-user preference, available to every active
+// member — NOT gated on management. Mirrors updateLanguageAction. accent is validated
+// against a strict allowlist before it's stored/cookied because it is inlined into a
+// server-rendered `style` attribute (CSS-injection guard).
+export async function updateAppearanceAction(
+  _prev: SettingsState,
+  formData: FormData
+): Promise<SettingsState> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: (await getActionDict()).errors.common.signInRequired }
+
+  const profile = await getProfileByUserId(user.id)
+  if (!profile?.restaurantId || !profile.isActive) {
+    return { error: (await getActionDict(profile?.preferredLanguage)).errors.common.noAccess }
+  }
+  const dict = getDictionary(profile.preferredLanguage)
+
+  const theme = z.enum(['light', 'dark', 'system']).safeParse(formData.get('theme'))
+  if (!theme.success) return { error: dict.errors.settings.invalidAppearance }
+
+  // Empty string = the default (green); stored as null. Any other value must validate.
+  const rawAccent = (formData.get('accent') as string | null)?.trim() || null
+  if (!isValidAccent(rawAccent)) return { error: dict.errors.settings.invalidAppearance }
+
+  await setAppearance(user.id, theme.data, rawAccent)
+  await setAppearanceCookies(theme.data, rawAccent)
   revalidatePath('/', 'layout')
   return { success: true }
 }

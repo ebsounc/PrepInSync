@@ -51,7 +51,7 @@ export default async function SettingsPage() {
           <CardDescription>{dict.settings.appearanceDesc}</CardDescription>
         </CardHeader>
         <CardContent>
-          <AppearanceForm />
+          <AppearanceForm currentTheme={profile.theme} currentAccent={profile.accentColor} />
         </CardContent>
       </Card>
 

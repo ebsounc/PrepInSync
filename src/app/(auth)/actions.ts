@@ -7,6 +7,7 @@ import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getOrigin } from '@/lib/get-origin'
 import { asLang, resolveKey } from '@/lib/i18n'
 import { setCookieLang, getActionDict } from '@/lib/i18n/server'
+import { setAppearanceCookies, clearAppearanceCookies } from '@/lib/appearance-cookies'
 
 // Zod messages carry a dotted dictionary KEY; resolved to the user's language on
 // return (auth pages have no profile, so the dict comes from the lang cookie).
@@ -106,9 +107,11 @@ export async function loginAction(
 
   const profile = await getProfileByUserId(data.user.id)
 
-  // Sync the language cookie to their saved preference so logged-out pages match.
+  // Sync language + appearance cookies to their saved preferences so a new device
+  // renders correctly on first paint (this is the cross-device mechanism).
   if (profile) {
     await setCookieLang(profile.preferredLanguage)
+    await setAppearanceCookies(profile.theme, profile.accentColor)
   }
 
   if (!profile?.restaurantId) {
@@ -125,6 +128,7 @@ export async function loginAction(
 export async function logoutAction() {
   const supabase = await createClient()
   await supabase.auth.signOut()
+  await clearAppearanceCookies()
   redirect('/login')
 }
 
@@ -186,6 +190,17 @@ export async function resetPasswordAction(
 
   if (error) {
     return { error: (await getActionDict()).errors.auth.resetFailed }
+  }
+
+  // This path (password reset + invite set-password) creates a session without going
+  // through loginAction, so seed the appearance cookies from the profile — otherwise a
+  // stale cookie from a prior user on this device would win in the root layout.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (user) {
+    const profile = await getProfileByUserId(user.id)
+    if (profile) await setAppearanceCookies(profile.theme, profile.accentColor)
   }
 
   redirect('/dashboard')

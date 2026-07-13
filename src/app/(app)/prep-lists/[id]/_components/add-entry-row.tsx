@@ -9,19 +9,20 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { UnitSelect } from '@/components/unit-select'
 import {
-  SelectField,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select'
+  ComboboxField,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxItem,
+} from '@/components/ui/combobox'
 import { formatQuantity } from '@/lib/units'
 import { useT } from '@/lib/i18n/client'
-import { cn } from '@/lib/utils'
+import { cn, normalizeForSearch } from '@/lib/utils'
 
 export type BuilderItem = {
   id: string
   name: string
+  // Untranslated source name, so search matches whichever language the cook types.
+  sourceName: string
   defaultQuantity: string | null
   defaultUnit: string | null
 }
@@ -89,16 +90,18 @@ function AddEntryForm({
   const { dict, t } = useT()
   const [state, action, isPending] = useActionState<ListActionState, FormData>(addEntryAction, null)
   const formRef = useRef<HTMLFormElement>(null)
-  const [itemId, setItemId] = useState('')
+  const [selected, setSelected] = useState<BuilderItem | null>(null)
   const [quantity, setQuantity] = useState('')
   const [unit, setUnit] = useState('')
   const [starred, setStarred] = useState(false)
   const [notes, setNotes] = useState('')
   const [confirmDup, setConfirmDup] = useState(false)
 
+  const itemId = selected?.id ?? ''
+
   useEffect(() => {
     if (state?.success) {
-      setItemId('')
+      setSelected(null)
       setQuantity('')
       setUnit('')
       setStarred(false)
@@ -109,15 +112,14 @@ function AddEntryForm({
 
   // Picking an item prefills qty/unit from its default amount (still editable).
   // Reset first so switching to an item with no default clears the previous values.
-  function handleItemChange(id: string) {
-    setItemId(id)
+  function handleItemChange(item: BuilderItem | null) {
+    setSelected(item)
     setConfirmDup(false)
-    const item = items.find((i) => i.id === id)
     setQuantity(item?.defaultQuantity ? formatQuantity(item.defaultQuantity) : '')
     setUnit(item?.defaultUnit ?? '')
   }
 
-  const selectedName = items.find((i) => i.id === itemId)?.name
+  const selectedName = selected?.name
   const isDuplicate = Boolean(itemId) && existingItemIds.includes(itemId)
   const canAdd = Boolean(itemId && quantity && unit) && !isPending
 
@@ -143,22 +145,31 @@ function AddEntryForm({
       )}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-foreground">{dict.prepLists.item}</label>
-        <SelectField value={itemId} onValueChange={(v) => handleItemChange(v ?? '')}>
-          <SelectTrigger>
-            {/* base-ui passes the raw id to the render fn; we show the item name
-                instead (the function child overrides the placeholder prop). */}
-            <SelectValue placeholder={dict.prepLists.selectItem}>
-              {() => selectedName ?? dict.prepLists.selectItem}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {items.map((i) => (
-              <SelectItem key={i.id} value={i.id}>
-                {i.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </SelectField>
+        <ComboboxField
+          items={items}
+          value={selected}
+          onValueChange={(item) => handleItemChange(item)}
+          itemToStringLabel={(i: BuilderItem) => i.name}
+          isItemEqualToValue={(a: BuilderItem, b: BuilderItem) => a.id === b.id}
+          // Match the typed query against both the translated and the source name.
+          filter={(item: BuilderItem, query: string) => {
+            if (!query) return true
+            const q = normalizeForSearch(query)
+            return (
+              normalizeForSearch(item.name).includes(q) ||
+              normalizeForSearch(item.sourceName).includes(q)
+            )
+          }}
+        >
+          <ComboboxInput placeholder={dict.prepLists.searchItems} />
+          <ComboboxContent<BuilderItem> empty={dict.prepLists.noItemsMatch}>
+            {(item) => (
+              <ComboboxItem key={item.id} value={item}>
+                {item.name}
+              </ComboboxItem>
+            )}
+          </ComboboxContent>
+        </ComboboxField>
       </div>
       <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
         <div className="flex flex-col gap-1.5">

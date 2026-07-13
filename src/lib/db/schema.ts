@@ -30,6 +30,10 @@ const ROLES = [
 
 const LANGUAGES = ['en', 'es'] as const
 
+// Per-user appearance. `system` follows the device; accent is free-form (validated
+// in app code — see lib/appearance.ts), so only theme gets a DB CHECK.
+const THEMES = ['light', 'dark', 'system'] as const
+
 // When a restaurant typically builds its prep lists — drives the new-list date/title default.
 const LIST_DAYS = ['today', 'next_day'] as const
 
@@ -75,6 +79,10 @@ export const profiles = pgTable(
     preferredLanguage: text('preferred_language', { enum: LANGUAGES })
       .notNull()
       .default('en'),
+    // Appearance follows the user across devices (mirrors preferred_language).
+    // accentColor is nullable: null = the baked-in green default.
+    theme: text('theme', { enum: THEMES }).notNull().default('system'),
+    accentColor: text('accent_color'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
@@ -84,6 +92,7 @@ export const profiles = pgTable(
       'profiles_preferred_language_check',
       inLiterals(t.preferredLanguage, LANGUAGES)
     ),
+    check('profiles_theme_check', inLiterals(t.theme, THEMES)),
     // Enforce exactly-one-owner-per-restaurant at the DB level (a concurrent
     // double-transfer can't create two owners). Partial: only `owner` rows are unique.
     uniqueIndex('one_owner_per_restaurant')

@@ -139,6 +139,9 @@ export default async function PrepListPage({ params }: { params: Promise<{ id: s
             items={items.map((i) => ({
               id: i.id,
               name: i.nameDisplay,
+              // Source name kept alongside the translated one so search matches either
+              // (a cook can find an item by the name they heard in the other language).
+              sourceName: i.name,
               defaultQuantity: i.defaultQuantity,
               defaultUnit: i.defaultUnit,
             }))}
