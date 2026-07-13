@@ -10,6 +10,7 @@ import { getDictionary } from '@/lib/i18n'
 import { LanguageProvider } from '@/lib/i18n/client'
 import { Button } from '@/components/ui/button'
 import { BottomNav } from './_components/bottom-nav'
+import { OfflineManager } from './_components/offline-manager'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -72,6 +73,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </header>
         {/* Pad the bottom so the fixed nav never covers content */}
         <main className={onboarded ? 'flex-1 pb-20' : 'flex-1'}>{children}</main>
+        {onboarded && profile && <OfflineManager currentUserId={profile.id} />}
         {onboarded && profile && <BottomNav showTeam={isManagement} />}
       </div>
     </LanguageProvider>

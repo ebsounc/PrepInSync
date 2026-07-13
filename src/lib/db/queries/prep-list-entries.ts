@@ -82,13 +82,20 @@ export async function removeEntry(id: string) {
   await db.delete(prepListEntries).where(eq(prepListEntries.id, id))
 }
 
-// Flips completion, stamping who/when on complete and clearing them on un-complete.
-export async function toggleEntryCompletion(id: string, completed: boolean, userId: string) {
+// Sets completion to an absolute value, stamping who/when on complete and clearing them
+// on un-complete. completedAt defaults to now, but a caller can pass the real check-off
+// time (e.g. a completion queued offline and replayed later).
+export async function toggleEntryCompletion(
+  id: string,
+  completed: boolean,
+  userId: string,
+  completedAt?: Date
+) {
   await db
     .update(prepListEntries)
     .set({
       completed,
-      completedAt: completed ? new Date() : null,
+      completedAt: completed ? (completedAt ?? new Date()) : null,
       completedBy: completed ? userId : null,
     })
     .where(eq(prepListEntries.id, id))

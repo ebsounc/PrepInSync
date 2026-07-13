@@ -253,12 +253,33 @@ export async function deleteListAction(listId: string): Promise<{ error?: string
 
 // --- Any-member actions: completion + notes (the core cook interactions) --------
 
-export async function toggleCompletionAction(entryId: string): Promise<{ error?: string }> {
+// Sets an entry's completion to an ABSOLUTE value (not a relative flip), so a
+// completion queued offline can be replayed idempotently — replaying the same intent
+// twice is a no-op, and two devices don't cancel each other out. completedBy is always
+// server-derived; completedAtISO is an optional client-supplied real check-off time
+// (validated + clamped) so an item checked in a dead zone records that time, not the
+// sync time.
+export async function setCompletionAction(
+  entryId: string,
+  completed: boolean,
+  completedAtISO?: string
+): Promise<{ error?: string; code?: 'entry_not_found' }> {
   const ctx = await requireMember()
   if ('error' in ctx) return { error: ctx.error }
   const entry = await accessibleEntry(entryId, ctx.restaurantId)
-  if (!entry) return { error: ctx.dict.errors.prepLists.entryNotFound }
-  await toggleEntryCompletion(entry.id, !entry.completed, ctx.profile.id)
+  // `code` lets the offline drain drop an intent whose entry was deleted (last write
+  // wins, don't crash) while keeping intents that failed for transient reasons.
+  if (!entry) return { error: ctx.dict.errors.prepLists.entryNotFound, code: 'entry_not_found' }
+
+  // Trust the client time only if it parses and isn't in the future (small skew
+  // allowed); otherwise stamp now. Purely a display/history field.
+  let completedAt: Date | undefined
+  if (completed && completedAtISO && z.string().datetime().safeParse(completedAtISO).success) {
+    const parsed = new Date(completedAtISO)
+    completedAt = parsed.getTime() <= Date.now() + 60_000 ? parsed : undefined
+  }
+
+  await toggleEntryCompletion(entry.id, completed, ctx.profile.id, completedAt)
   revalidatePath(`/prep-lists/${entry.prepListId}`)
   return {}
 }

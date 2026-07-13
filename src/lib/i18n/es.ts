@@ -25,6 +25,7 @@ export const es: Dict = {
     brand: 'PrepInSync',
     settingsAria: 'Ajustes',
     toggleTheme: 'Cambiar claro / oscuro',
+    offlineBanner: 'Estás sin conexión. Los cambios se guardan aquí y se sincronizan al reconectar.',
     deactivatedTitle: 'Cuenta desactivada',
     deactivatedBody:
       'Tu acceso a esta cocina ha sido desactivado. Contacta a tu gerente si crees que es un error.',

@@ -13,7 +13,7 @@ import {
   Trash2Icon,
 } from 'lucide-react'
 import {
-  toggleCompletionAction,
+  setCompletionAction,
   saveCookNoteAction,
   setStarAction,
   removeEntryAction,
@@ -21,6 +21,7 @@ import {
   type ListActionState,
 } from '../../actions'
 import { addCustomUnitAction } from '../../../_actions/units'
+import { enqueueCompletion } from '@/lib/offline/queue'
 import type { PrepListEntryDisplay } from '@/lib/translation/apply'
 import { formatAmount, formatQuantity } from '@/lib/units'
 import { Button } from '@/components/ui/button'
@@ -83,23 +84,53 @@ function DisplayEntry({
   onEdit: () => void
 }) {
   const { dict, t } = useT()
-  const [togglePending, startToggle] = useTransition()
   const displayUnit = customUnitLabels[entry.unit] ?? entry.unit
 
+  // Optimistic completion: flip instantly, then persist. Offline the tap is queued and
+  // replayed on reconnect. Server truth (after a synced revalidate) wins via the effect.
+  const [completed, setCompleted] = useState(entry.completed)
+  const [inFlight, setInFlight] = useState(false)
+  useEffect(() => setCompleted(entry.completed), [entry.completed])
+
+  function toggle() {
+    const next = !completed
+    setCompleted(next)
+    // ownerId binds the intent to this user so a different user logged in on the same
+    // device can't replay it under their identity (see OfflineManager drain).
+    const item = {
+      entryId: entry.id,
+      completed: next,
+      completedAt: new Date().toISOString(),
+      ownerId: currentUserId,
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      enqueueCompletion(item)
+      return
+    }
+    // Online: persist directly. Disable while in flight so a rapid second tap can't
+    // race the first (out-of-order responses would fight the optimistic state). If the
+    // request fails (dropped mid-flight), queue it — except a deleted entry.
+    setInFlight(true)
+    setCompletionAction(entry.id, next, item.completedAt)
+      .then((res) => {
+        if (res?.error && res.code !== 'entry_not_found') enqueueCompletion(item)
+      })
+      .catch(() => enqueueCompletion(item))
+      .finally(() => setInFlight(false))
+  }
+
   return (
-    <li className={cn('overflow-hidden rounded-xl border shadow-sm', entry.completed ? 'bg-muted/40' : 'bg-card')}>
+    <li className={cn('overflow-hidden rounded-xl border shadow-sm', completed ? 'bg-muted/40' : 'bg-card')}>
       <div className="flex items-stretch">
         {/* The whole left region is the completion toggle — a big greasy-hands target. */}
         <button
           type="button"
-          disabled={togglePending}
-          aria-pressed={entry.completed}
-          onClick={() => startToggle(() => toggleCompletionAction(entry.id).then(() => {}))}
+          aria-pressed={completed}
+          disabled={inFlight}
+          onClick={toggle}
           className="flex min-h-[56px] flex-1 items-center gap-3 p-3 text-left"
         >
-          {togglePending ? (
-            <Loader2Icon className="size-6 shrink-0 animate-spin" />
-          ) : entry.completed ? (
+          {completed ? (
             <CheckCircle2Icon className="size-6 shrink-0 text-primary" />
           ) : (
             <CircleIcon className="size-6 shrink-0 text-muted-foreground" />
@@ -108,7 +139,7 @@ function DisplayEntry({
             <span
               className={cn(
                 'flex items-center gap-1.5 font-medium',
-                entry.completed && 'text-muted-foreground line-through'
+                completed && 'text-muted-foreground line-through'
               )}
             >
               {entry.isStarred && (
@@ -128,7 +159,7 @@ function DisplayEntry({
         )}
       </div>
 
-      {entry.completed && entry.completedByName && (
+      {completed && entry.completedByName && (
         <p className="px-3 pb-1 text-xs text-muted-foreground">
           {t(dict.prepLists.doneByName, { name: entry.completedByName })}
         </p>

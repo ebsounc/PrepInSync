@@ -31,6 +31,7 @@ export const en = {
     brand: 'PrepInSync',
     settingsAria: 'Settings',
     toggleTheme: 'Toggle light / dark',
+    offlineBanner: "You're offline. Changes save here and sync when you reconnect.",
     deactivatedTitle: 'Account deactivated',
     deactivatedBody:
       'Your access to this kitchen has been turned off. Contact your manager if you think this is a mistake.',
