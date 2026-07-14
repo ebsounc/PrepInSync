@@ -14,7 +14,7 @@ export const ACCENT_VARS = ['--primary', '--ring', '--sidebar-primary'] as const
 export const ACCENTS: { key: string; value: string | null; swatch: string }[] = [
   { key: 'green', value: null, swatch: 'oklch(0.58 0.15 152)' },
   { key: 'teal', value: 'oklch(0.62 0.11 190)', swatch: 'oklch(0.62 0.11 190)' },
-  { key: 'sky', value: 'oklch(0.62 0.13 230)', swatch: 'oklch(0.62 0.13 230)' },
+  { key: 'sky', value: '#4B9CD3', swatch: '#4B9CD3' },
   { key: 'blue', value: 'oklch(0.55 0.19 255)', swatch: 'oklch(0.55 0.19 255)' },
   { key: 'indigo', value: 'oklch(0.5 0.21 272)', swatch: 'oklch(0.5 0.21 272)' },
   { key: 'violet', value: 'oklch(0.56 0.22 300)', swatch: 'oklch(0.56 0.22 300)' },
