@@ -57,7 +57,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </span>
           <div className="flex items-center gap-1 sm:gap-2">
             <span className="hidden text-sm text-muted-foreground sm:block">{displayName}</span>
-            {onboarded && isManagement && (
+            {/* Everyone reaches Settings for their own theme + language. The page
+                shows management-only cards (restaurant, units, transfer) only to
+                management; cooks just get Appearance + Language. */}
+            {onboarded && (
               <Button
                 render={<Link href="/settings" />}
                 nativeButton={false}
