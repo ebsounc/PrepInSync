@@ -1,46 +1,94 @@
-# kitchen-app
+# PrepInSync
 
-A mobile-first kitchen prep tool. Chefs build prep lists and recipes; Prep cooks see everything natively in English or kitchen-accurate Spanish.
+A mobile-first, **bilingual kitchen prep tool**. A chef builds prep lists and recipes; every
+cook reads and works them in their own language — **English or kitchen-accurate Spanish** —
+so back-of-house staff who don't share a language can still work off the same list.
 
-## Local setup (fresh clone)
+> **A personal project.** A complete, working app built solo — designed like a real product a kitchen
+> could actually run on, but it's a **personal project: not for sale and not commercially maintained**.
+> It's here to look at and run.
 
-1. **Install dependencies**
+---
+
+## What it does
+
+- **Bilingual by design (the whole point).** User content — item names, notes, units, recipes —
+  is translated on demand between English and Spanish and cached, using a kitchen-specific glossary
+  so the output is what a working prep cook would actually say. The entire UI is bilingual too.
+- **Prep workflow.** Management builds prep lists from an item catalog (quantities, units, priority
+  stars, per-item instructions); all staff tap items complete; cooks leave their own notes.
+- **Recipes** attached to items — typed, pasted from a document (parsed by AI), or **scanned from a
+  photo** of a binder page (AI vision).
+- **Roles & permissions.** Eight roles across a management / execution split, per-person
+  list-creation permission, team invites, soft-delete.
+- **Graceful offline.** Check items off in a walk-in with no signal; they sync when it returns.
+- **Per-user theming** (light / dark / system + accent color, cross-device) and an accent-driven logo.
+
+The full, honest catalog of features and the decisions behind them lives in
+**[docs/features.md](docs/features.md)**.
+
+## See it live — no setup
+
+**The easiest way to look at it is the hosted demo. Just open the link and sign in — nothing to
+install.**
+
+> **Coming after deploy.** A hosted **sandbox kitchen** with a ready-to-use login: browse real prep
+> lists and recipes, flip the whole app between English and Spanish, check items off, leave notes. It's
+> a shared demo restaurant, isolated from any other data and reset periodically — so be gentle. The URL
+> and demo credentials will live right here once it's deployed.
+
+## Tech stack
+
+- **Next.js 15** (App Router, React 19, server actions) + **TypeScript** (strict)
+- **Supabase** — Postgres, auth, storage, row-level security
+- **Drizzle ORM** for type-safe queries
+- **Tailwind CSS** + shadcn / Base UI components
+- **Vercel AI SDK + Claude (Sonnet 4.6)** for translation and recipe parsing/vision
+- **Vercel** for hosting
+
+## Running it yourself (optional — for developers)
+
+You don't need any of this to *see* the app — use the [hosted demo](#see-it-live--no-setup) above.
+These steps are only if you want to clone the repo and run your **own** copy of the code. Because it's
+a full-stack app with its own database, that means bringing your own backend — there's no way around it.
+
+**Prerequisites:** Node 20+, a [Supabase](https://supabase.com) project, and an
+[Anthropic API key](https://console.anthropic.com).
+
+1. **Install**
    ```bash
    npm install
    ```
 
-2. **Create `.env.local`** — copy the template and fill in the real values:
+2. **Environment** — copy the template and fill in your values (`.env.local` is gitignored):
    ```bash
    cp .env.example .env.local
    ```
-   `.env.local` is gitignored (secrets never go in the repo), so it does **not**
-   come down with a clone. You must recreate it on each machine. Get the values
-   from your Vercel project env vars or the Supabase dashboard:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — Supabase → Project Settings → API
-   - `DATABASE_URL` — Supabase connection string. **Use the pooler host**, not the
-     direct host (the direct host is IPv6-only and won't connect).
-   - `ANTHROPIC_API_KEY` — for translation / recipe parsing.
+   | Variable | Where to get it |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API |
+   | `DATABASE_URL` | Supabase connection string — **use the pooler host** (`...pooler.supabase.com`); the direct host is IPv6-only and won't connect on many networks |
+   | `ANTHROPIC_API_KEY` | Anthropic Console |
 
-3. **Run the dev server**
+3. **Set up the database.** In your Supabase project's SQL editor, run
+   **[`supabase/setup.sql`](supabase/setup.sql)** once — it creates every table, constraint, RLS
+   policy, the signup trigger, and the Storage bucket in a single shot.
+
+   (That file is the flattened *current* schema. The per-change history lives in
+   [`drizzle/migrations/`](drizzle/migrations) + [`supabase/`](supabase), and the workflow for
+   *changing* the schema later is in [docs/database.md](docs/database.md) — don't use `drizzle-kit push`.)
+
+4. **Run**
    ```bash
    npm run dev
    ```
-   Open http://localhost:3000.
-
-No local database setup is needed — the app connects to the shared cloud Supabase
-instance, which already has all migrations applied.
-
-## Database migrations
-
-Migrations live in `drizzle/migrations/` and are already applied to the shared
-Supabase database. You only touch them when changing the schema — see
-[docs/database.md](docs/database.md) for the generate/apply workflow. Do **not**
-run `drizzle-kit push`.
+   Open <http://localhost:3000>. It's mobile-first — try your browser's device emulation, or a phone
+   on the same network.
 
 ## Docs
 
-- [docs/overview.md](docs/overview.md) — product scope, v1 features, roadmap, stack
-- [docs/database.md](docs/database.md) — DB map, migration workflow, RLS model
-- [docs/i18n.md](docs/i18n.md) — UI string internationalization
-- [docs/translation-validation.md](docs/translation-validation.md) — kitchen Spanish glossary
-- [docs/test-accounts.md](docs/test-accounts.md) — login credentials for testing
+- **[docs/features.md](docs/features.md)** — full feature catalog + the intentional choices behind it
+- [docs/overview.md](docs/overview.md) — product scope, build phases, stack, roadmap
+- [docs/database.md](docs/database.md) — schema map, migration workflow, RLS model
+- [docs/i18n.md](docs/i18n.md) — how the static UI is translated (separate from content translation)
+- [docs/translation-validation.md](docs/translation-validation.md) — the kitchen-Spanish glossary

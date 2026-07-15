@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Playwright MCP run artifacts (snapshots/screenshots from local QA)
 .playwright-mcp/
+
+# Seeded test-account logins (dev credentials — kept out of the repo)
+docs/test-accounts.md
