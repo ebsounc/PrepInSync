@@ -32,10 +32,21 @@ The full, honest catalog of features and the decisions behind them lives in
 **The easiest way to look at it is the hosted demo. Just open the link and sign in — nothing to
 install.**
 
-> **Coming after deploy.** A hosted **sandbox kitchen** with a ready-to-use login: browse real prep
-> lists and recipes, flip the whole app between English and Spanish, check items off, leave notes. It's
-> a shared demo restaurant, isolated from any other data and reset periodically — so be gentle. The URL
-> and demo credentials will live right here once it's deployed.
+### ▶︎ [prepinsync.vercel.app](https://prepinsync.vercel.app)
+
+| | |
+|---|---|
+| **Email** | `demo@prepinsync.app` |
+| **Password** | `DemoKitchen1!` |
+
+You land in **Demo Kitchen** — a steakhouse with real prep lists, recipes, cover photos, and a full
+roster of staff across every role. Browse the lists and recipes, **flip the whole app between English
+and Spanish** (in Settings, or sign in as one of the Spanish-speaking cooks), check items off, and
+leave notes. It's a shared sandbox restaurant, isolated from any real data and **reset every time
+someone signs in** — so anything you touch is wiped clean for the next visitor, and team management
+(invites, role changes) is turned off.
+
+Want your own? **Create your own kitchen** from the login screen spins up a fresh, private restaurant.
 
 ## Tech stack
 
