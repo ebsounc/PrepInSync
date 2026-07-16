@@ -105,7 +105,7 @@ const ITEMS: Item[] = [
     },
   },
   {
-    name: 'Béarnaise sauce', dq: '2', du: 'qt', photo: 'bearnaise',
+    name: 'Béarnaise sauce', dq: '2', du: 'qt',
     recipe: {
       ingredients: [
         { name: 'Egg yolks', quantity: '6', unit: 'each' },
