@@ -8,6 +8,8 @@ import { getOrigin } from '@/lib/get-origin'
 import { asLang, resolveKey } from '@/lib/i18n'
 import { setCookieLang, getActionDict } from '@/lib/i18n/server'
 import { setAppearanceCookies, clearAppearanceCookies } from '@/lib/appearance-cookies'
+import { isDemoRestaurant } from '@/lib/demo'
+import { resetDemoData } from '@/lib/demo-seed'
 
 // Zod messages carry a dotted dictionary KEY; resolved to the user's language on
 // return (auth pages have no profile, so the dict comes from the lang cookie).
@@ -112,6 +114,16 @@ export async function loginAction(
   if (profile) {
     await setCookieLang(profile.preferredLanguage)
     await setAppearanceCookies(profile.theme, profile.accentColor)
+  }
+
+  // Public demo: reseed a clean kitchen on every login so each visitor starts fresh
+  // and never inherits the last one's edits. Best-effort — never block sign-in.
+  if (isDemoRestaurant(profile?.restaurantId)) {
+    try {
+      await resetDemoData()
+    } catch (e) {
+      console.error('demo reset failed', e)
+    }
   }
 
   if (!profile?.restaurantId) {

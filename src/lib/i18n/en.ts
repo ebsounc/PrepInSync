@@ -155,8 +155,7 @@ export const en = {
     scanning: 'Reading photo…',
     scanReview: 'Review the scanned recipe below, then save.',
     coverPhoto: 'Cover photo',
-    addCoverPhoto: 'Add cover photo',
-    replaceCoverPhoto: 'Replace photo',
+    changeCoverPhoto: 'Change cover photo',
     removeCoverPhoto: 'Remove photo',
     coverPhotoAlt: 'Recipe cover photo',
   },
@@ -384,6 +383,7 @@ export const en = {
       pickRole: 'Pick a valid role.',
       cantDeactivateSelf: "You can't deactivate yourself.",
       cantDeactivateOwner: "You can't deactivate the owner.",
+      demoReadOnly: 'Team management is turned off in the demo kitchen.',
     },
     settings: {
       noPermission: 'You do not have permission to manage settings.',

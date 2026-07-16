@@ -150,8 +150,7 @@ export const es: Dict = {
     scanning: 'Leyendo la foto…',
     scanReview: 'Revisa la receta escaneada abajo y luego guárdala.',
     coverPhoto: 'Foto de portada',
-    addCoverPhoto: 'Agregar foto de portada',
-    replaceCoverPhoto: 'Reemplazar foto',
+    changeCoverPhoto: 'Cambiar foto de portada',
     removeCoverPhoto: 'Quitar foto',
     coverPhotoAlt: 'Foto de portada de la receta',
   },
@@ -382,6 +381,7 @@ export const es: Dict = {
       pickRole: 'Elige un rol válido.',
       cantDeactivateSelf: 'No puedes desactivarte a ti mismo.',
       cantDeactivateOwner: 'No puedes desactivar al propietario.',
+      demoReadOnly: 'La gestión del equipo está desactivada en la cocina de demostración.',
     },
     settings: {
       noPermission: 'No tienes permiso para administrar los ajustes.',

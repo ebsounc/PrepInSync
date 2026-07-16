@@ -20,12 +20,16 @@ export function RecipeView({
   canManage,
   lang,
   coverUrl,
+  hasOwnCover,
 }: {
   recipe: RecipeDisplay
   itemId: string
   canManage: boolean
   lang: 'en' | 'es'
   coverUrl: string | null
+  // Whether the recipe has its OWN cover photo (vs. showing the item's as a fallback) —
+  // drives the "remove" control, which only clears the recipe's own photo.
+  hasOwnCover: boolean
 }) {
   const { dict } = useT()
   const [editing, setEditing] = useState(false)
@@ -54,7 +58,7 @@ export function RecipeView({
         />
       )}
       {canManage && (
-        <CoverPhotoControl recipeId={recipe.id} itemId={itemId} hasCover={!!coverUrl} />
+        <CoverPhotoControl recipeId={recipe.id} itemId={itemId} hasCover={hasOwnCover} />
       )}
 
       <section>
@@ -189,8 +193,8 @@ function CoverPhotoControl({
           disabled={pending}
           onClick={() => inputRef.current?.click()}
         >
-          {pending ? <Loader2Icon className="size-4 animate-spin" /> : <CameraIcon className="size-4" />}{' '}
-          {hasCover ? dict.recipes.replaceCoverPhoto : dict.recipes.addCoverPhoto}
+          {pending ? <Loader2Icon className="animate-spin" /> : <CameraIcon />}
+          {dict.recipes.changeCoverPhoto}
         </Button>
         {hasCover && (
           <Button

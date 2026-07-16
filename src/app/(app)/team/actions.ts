@@ -21,6 +21,7 @@ import {
 } from '@/lib/auth/roles'
 import { getDictionary, resolveKey } from '@/lib/i18n'
 import { getActionDict } from '@/lib/i18n/server'
+import { isDemoRestaurant } from '@/lib/demo'
 
 const inviteSchema = z.object({
   email: z.string().email('errors.auth.invalidEmail'),
@@ -53,6 +54,12 @@ export async function inviteTeamMemberAction(
   }
 
   const dict = getDictionary(callerProfile.preferredLanguage)
+
+  // The public demo kitchen can't send invites (would email arbitrary addresses).
+  if (isDemoRestaurant(callerProfile.restaurantId)) {
+    return { error: dict.errors.team.demoReadOnly }
+  }
+
   const parsed = inviteSchema.safeParse({
     email: formData.get('email'),
     firstName: formData.get('firstName'),
@@ -121,6 +128,13 @@ async function requireManagerAndTarget(targetId: string) {
   }
 
   const dict = getDictionary(caller.preferredLanguage)
+
+  // Freeze the demo kitchen's roster (no role/permission/active changes) so a shared
+  // public login can't deface it. Ongoing resets keep it pristine.
+  if (isDemoRestaurant(caller.restaurantId)) {
+    return { error: dict.errors.team.demoReadOnly }
+  }
+
   const parsedId = z.string().uuid().safeParse(targetId)
   if (!parsedId.success) return { error: dict.errors.team.invalidMember }
 

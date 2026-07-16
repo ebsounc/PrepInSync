@@ -44,8 +44,11 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
   const translatedRecipe = recipe
     ? await translateRecipe(recipe, profile.restaurantId, lang, customUnitLabels)
     : null
-  // Cover photo: image_url holds the Storage object path; sign it for display.
-  const coverUrl = recipe?.imageUrl ? await getSignedUrl(recipe.imageUrl) : null
+  // Cover photo: prefer the recipe's own photo, else fall back to the item's photo so an
+  // item cover shows on its recipe page too. image_url holds the Storage object path.
+  const hasOwnCover = !!recipe?.imageUrl
+  const coverPath = recipe?.imageUrl ?? item.imageUrl
+  const coverUrl = coverPath ? await getSignedUrl(coverPath) : null
 
   // Translated ingredient names / step texts the viewer could correct.
   const corrections: Correctable[] = []
@@ -101,6 +104,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
           canManage={canManage}
           lang={lang}
           coverUrl={coverUrl}
+          hasOwnCover={hasOwnCover}
         />
       ) : canManage ? (
         <RecipeEditor itemId={item.id} initialIngredients={[]} initialSteps={[]} />
