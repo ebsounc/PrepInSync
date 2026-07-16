@@ -655,11 +655,11 @@ ALTER TABLE public.restaurant_units ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.restaurants ENABLE ROW LEVEL SECURITY;
 
---
--- Name: profiles service role insert profiles; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "service role insert profiles" ON public.profiles FOR INSERT WITH CHECK (true);
+-- NOTE: a "service role insert profiles" INSERT policy WITH CHECK (true) used to live
+-- here. It was removed as a security fix: with no `TO` clause it applied to anon +
+-- authenticated, letting any caller INSERT arbitrary profiles rows. The signup trigger
+-- (handle_new_user) is SECURITY DEFINER and service_role bypasses RLS, so no legitimate
+-- path needed it. See the "Security hardening" block at the end of this file.
 
 
 --
@@ -957,3 +957,76 @@ create policy "recipe-images tenant delete"
     and (storage.foldername(name))[1] =
         (select restaurant_id::text from public.profiles where id = auth.uid())
   );
+
+
+-- =============================================================================
+-- Security hardening (public-launch). Supersedes the matching pieces of the
+-- pg_dump above; run as the LAST step. See docs/database.md.
+--
+-- Threat model: Supabase's auto-exposed Data API (PostgREST) lets any signed-in
+-- user hit these tables directly with the public anon key, governed only by RLS.
+-- This app never does that — ALL table access is server-side via the postgres
+-- role (Drizzle) or the service_role admin client — so the API surface is pure
+-- attack surface. Two problems in the base dump:
+--   1. GRANT ALL to anon/authenticated + a column-unrestricted profiles UPDATE
+--      policy let a user self-promote their role or change their own
+--      restaurant_id and read/write another tenant's data.
+--   2. Every "restaurant isolation" policy subqueried public.profiles, whose own
+--      SELECT policy subqueried profiles again -> "infinite recursion detected in
+--      policy" (42P17); RLS was effectively non-functional for the API role.
+-- =============================================================================
+
+-- (1) SECURITY DEFINER helper: returns the caller's restaurant_id WITHOUT
+-- re-triggering profiles' RLS (this breaks the recursion). STABLE + pinned
+-- search_path.
+CREATE OR REPLACE FUNCTION public.current_restaurant_id() RETURNS uuid
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+  AS $fn$ SELECT restaurant_id FROM public.profiles WHERE id = auth.uid() $fn$;
+GRANT EXECUTE ON FUNCTION public.current_restaurant_id() TO anon, authenticated, service_role;
+
+-- (2) Rewrite every tenant-isolation policy to call the helper (no self-reference).
+DROP POLICY IF EXISTS "users read own restaurant profiles" ON public.profiles;
+CREATE POLICY "users read own restaurant profiles" ON public.profiles
+  FOR SELECT USING (restaurant_id = public.current_restaurant_id());
+
+DROP POLICY IF EXISTS "restaurant isolation" ON public.glossary_overrides;
+CREATE POLICY "restaurant isolation" ON public.glossary_overrides
+  USING (restaurant_id = public.current_restaurant_id());
+DROP POLICY IF EXISTS "restaurant isolation" ON public.prep_items;
+CREATE POLICY "restaurant isolation" ON public.prep_items
+  USING (restaurant_id = public.current_restaurant_id());
+DROP POLICY IF EXISTS "restaurant isolation" ON public.prep_lists;
+CREATE POLICY "restaurant isolation" ON public.prep_lists
+  USING (restaurant_id = public.current_restaurant_id());
+DROP POLICY IF EXISTS "restaurant isolation" ON public.prep_list_entries;
+CREATE POLICY "restaurant isolation" ON public.prep_list_entries
+  USING (prep_list_id IN (SELECT id FROM public.prep_lists WHERE restaurant_id = public.current_restaurant_id()));
+DROP POLICY IF EXISTS "restaurant isolation" ON public.recipes;
+CREATE POLICY "restaurant isolation" ON public.recipes
+  USING (restaurant_id = public.current_restaurant_id());
+DROP POLICY IF EXISTS "restaurant isolation" ON public.restaurant_units;
+CREATE POLICY "restaurant isolation" ON public.restaurant_units
+  USING (restaurant_id = public.current_restaurant_id());
+DROP POLICY IF EXISTS "restaurant isolation" ON public.translations;
+CREATE POLICY "restaurant isolation" ON public.translations
+  USING (restaurant_id = public.current_restaurant_id());
+
+DROP POLICY IF EXISTS "users read own restaurant invites" ON public.invites;
+CREATE POLICY "users read own restaurant invites" ON public.invites
+  FOR SELECT USING (restaurant_id = public.current_restaurant_id());
+
+DROP POLICY IF EXISTS "users see own restaurant" ON public.restaurants;
+CREATE POLICY "users see own restaurant" ON public.restaurants
+  FOR SELECT USING (id = public.current_restaurant_id());
+DROP POLICY IF EXISTS "users update own restaurant" ON public.restaurants;
+CREATE POLICY "users update own restaurant" ON public.restaurants
+  FOR UPDATE USING (id = public.current_restaurant_id());
+
+-- (3) Take writes away from the API roles entirely (app writes are server-side
+-- only). Reads stay SELECT-only, scoped by the policies above. service_role and
+-- postgres are unaffected.
+REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
+
+-- Future tables created by postgres (Drizzle migrations) must not re-open writes.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE INSERT, UPDATE, DELETE ON TABLES FROM anon, authenticated;
