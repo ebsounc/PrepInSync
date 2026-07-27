@@ -11,6 +11,12 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { UNITS } from '@/lib/units'
 import { useT } from '@/lib/i18n/client'
 
@@ -54,6 +60,15 @@ export function UnitSelect({
       return
     }
     onValueChange(v)
+  }
+
+  // Reset the draft on close so reopening never shows a stale value or error.
+  function closeDialog(open: boolean) {
+    setAdding(open)
+    if (!open) {
+      setDraft('')
+      setError(null)
+    }
   }
 
   function submitNewUnit() {
@@ -114,9 +129,15 @@ export function UnitSelect({
         )}
       </div>
 
-      {adding && onAddUnit && (
-        <div className="mt-2 flex flex-col gap-1">
-          <div className="flex items-center gap-1">
+      {/* A dialog rather than an inline row: this control sits in a half-width grid
+          cell (and in an even narrower one on the prep-list forms), so a text input
+          wedged between two 44px buttons was unusable on a phone. The dialog also
+          fixes it for all three call sites at once, without restructuring their grids. */}
+      {onAddUnit && (
+        <Dialog open={adding} onOpenChange={closeDialog}>
+          <DialogContent>
+            <DialogTitle>{dict.unitSelect.addUnit}</DialogTitle>
+            <DialogDescription>{dict.unitSelect.addUnitHelp}</DialogDescription>
             <Input
               type="text"
               value={draft}
@@ -124,6 +145,8 @@ export function UnitSelect({
               placeholder={dict.unitSelect.customPlaceholder}
               maxLength={20}
               autoFocus
+              aria-label={dict.unitSelect.addUnit}
+              aria-invalid={Boolean(error)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
@@ -131,33 +154,31 @@ export function UnitSelect({
                 }
               }}
             />
-            <Button
-              type="button"
-              size="icon"
-              className="size-11 shrink-0"
-              aria-label={dict.unitSelect.saveUnit}
-              disabled={pending || !draft.trim()}
-              onClick={submitNewUnit}
-            >
-              {pending ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-11 shrink-0"
-              aria-label={dict.common.cancel}
-              onClick={() => {
-                setAdding(false)
-                setDraft('')
-                setError(null)
-              }}
-            >
-              <XIcon />
-            </Button>
-          </div>
-          {error && <span className="text-xs text-destructive">{error}</span>}
-        </div>
+            {error && (
+              <span role="alert" className="text-sm text-destructive">
+                {error}
+              </span>
+            )}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                className="min-h-[48px] flex-1 text-base"
+                disabled={pending || !draft.trim()}
+                onClick={submitNewUnit}
+              >
+                {pending ? <Loader2Icon className="size-4 animate-spin" /> : dict.unitSelect.saveUnit}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-[48px]"
+                onClick={() => closeDialog(false)}
+              >
+                {dict.common.cancel}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       <input type="hidden" name={name} value={value} />

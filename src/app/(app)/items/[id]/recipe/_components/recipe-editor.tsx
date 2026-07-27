@@ -183,12 +183,16 @@ export function RecipeEditor({
   initialIngredients,
   initialSteps,
   onCancel,
+  coverPhoto,
 }: {
   itemId: string
   recipeId?: string
   initialIngredients: RecipeIngredient[]
   initialSteps: string[]
   onCancel?: () => void
+  /** Cover-photo control, rendered only while editing. Passed in rather than built
+   *  here because it needs the recipe's own-cover state, which lives in the view. */
+  coverPhoto?: React.ReactNode
 }) {
   const { dict } = useT()
   const [state, action, isPending] = useActionState<RecipeActionState, FormData>(
@@ -214,6 +218,13 @@ export function RecipeEditor({
       {state?.error && (
         <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
           {state.error}
+        </div>
+      )}
+
+      {coverPhoto && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">{dict.recipes.coverPhoto}</span>
+          {coverPhoto}
         </div>
       )}
 

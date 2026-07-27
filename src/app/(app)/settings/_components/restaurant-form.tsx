@@ -63,6 +63,24 @@ export function RestaurantForm({
         />
       </Field>
       <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-foreground">{dict.settings.listDefaultLabel}</label>
+        <SelectField name="listDefaultDay" value={listDay} onValueChange={(v) => { if (v) setListDay(v) }}>
+          <SelectTrigger>
+            <SelectValue>
+              {() => (listDay === 'next_day' ? dict.settings.listDefaultNextDay : dict.settings.listDefaultToday)}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="today">{dict.settings.listDefaultToday}</SelectItem>
+            <SelectItem value="next_day">{dict.settings.listDefaultNextDay}</SelectItem>
+          </SelectContent>
+        </SelectField>
+        <input type="hidden" name="listDefaultDay" value={listDay} />
+        <p className="text-xs text-muted-foreground">{dict.settings.listDefaultHelp}</p>
+      </div>
+      {/* Last: auto-detected at onboarding, so it's rarely touched — but it can't be
+          dropped, since it decides which lists count as "today" on the dashboard. */}
+      <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-foreground">{dict.settings.timezone}</label>
         <SelectField name="timezone" value={tz} onValueChange={(v) => { if (v) setTz(v) }}>
           <SelectTrigger>
@@ -85,22 +103,7 @@ export function RestaurantForm({
           </SelectContent>
         </SelectField>
         <input type="hidden" name="timezone" value={tz} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">{dict.settings.listDefaultLabel}</label>
-        <SelectField name="listDefaultDay" value={listDay} onValueChange={(v) => { if (v) setListDay(v) }}>
-          <SelectTrigger>
-            <SelectValue>
-              {() => (listDay === 'next_day' ? dict.settings.listDefaultNextDay : dict.settings.listDefaultToday)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">{dict.settings.listDefaultToday}</SelectItem>
-            <SelectItem value="next_day">{dict.settings.listDefaultNextDay}</SelectItem>
-          </SelectContent>
-        </SelectField>
-        <input type="hidden" name="listDefaultDay" value={listDay} />
-        <p className="text-xs text-muted-foreground">{dict.settings.listDefaultHelp}</p>
+        <p className="text-xs text-muted-foreground">{dict.settings.timezoneHelp}</p>
       </div>
       <Button type="submit" className="min-h-[48px] text-base" disabled={isPending || !tz}>
         {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.settings.saveChanges}

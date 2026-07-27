@@ -2,7 +2,16 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { BookOpenIcon, CameraIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react'
+import {
+  BookOpenIcon,
+  CameraIcon,
+  Loader2Icon,
+  PencilIcon,
+  PlusIcon,
+  SearchIcon,
+  Trash2Icon,
+  XIcon,
+} from 'lucide-react'
 import {
   createItemAction,
   updateItemAction,
@@ -109,13 +118,22 @@ export function ItemsList({
           </Button>
         ))}
       {items.length > 0 && (
-        <Input
-          type="search"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder={dict.items.filterPlaceholder}
-          aria-label={dict.items.filterPlaceholder}
-        />
+        <div className="relative">
+          <Input
+            type="search"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={dict.items.searchPlaceholder}
+            aria-label={dict.items.searchPlaceholder}
+            // Suppress WebKit's built-in clear button — it sits exactly where the
+            // magnifying glass goes and the two would overlap.
+            className="pr-10 [&::-webkit-search-cancel-button]:appearance-none"
+          />
+          <SearchIcon
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-3 my-auto size-4 text-muted-foreground"
+          />
+        </div>
       )}
       {items.length === 0 ? (
         <p className="text-muted-foreground">
@@ -234,15 +252,17 @@ function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?
   }, [state])
 
   return (
-    <form action={action} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
-      <h2 className="font-medium">{dict.items.addItemHeading}</h2>
+    <form action={action} className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
+      {/* Sized up so section headers read as headers — they were `font-medium` with no
+          size class, i.e. visually identical to body text. */}
+      <h2 className="text-lg font-semibold">{dict.items.addItemHeading}</h2>
       {state?.error && <ErrorBanner message={state.error} />}
       {/* Recipe travels with the item; only submitted when the section is open. */}
       {showRecipe && (
         <input type="hidden" name="recipe" value={serializeRecipe(ingredients, steps)} />
       )}
       <Field name="name">
-        <FieldLabel>{dict.items.name}</FieldLabel>
+        <FieldLabel required>{dict.items.name}</FieldLabel>
         <Input
           type="text"
           name="name"
@@ -278,7 +298,7 @@ function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?
       {showRecipe && (
         <div className="flex flex-col gap-3 rounded-lg border p-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium">{dict.recipes.recipeHeading}</h3>
+            <h3 className="text-base font-semibold">{dict.recipes.recipeHeading}</h3>
             <Button
               type="button"
               variant="ghost"
@@ -298,18 +318,41 @@ function AddItemForm({ customUnits, onClose }: { customUnits: string[]; onClose?
           />
         </div>
       )}
+      {/* Same bordered block + remove button as the recipe section above. Par level had
+          no way back once opened: you had to blank the quantity AND clear the unit
+          separately, and doing only one tripped the "amount needs both" error. */}
       {showPar && (
-        <AmountFields
-          label={dict.items.parLevel}
-          quantityName="parQuantity"
-          unitName="parUnit"
-          quantity={parQty}
-          onQuantity={setParQty}
-          unit={parUnit}
-          onUnit={setParUnit}
-          placeholder={dict.items.parLevelPlaceholder}
-          customUnits={customUnits}
-        />
+        <div className="flex flex-col gap-3 rounded-lg border p-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold">{dict.items.parLevel}</h3>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9"
+              aria-label={dict.items.removeParLevel}
+              onClick={() => {
+                setShowPar(false)
+                setParQty('')
+                setParUnit('')
+              }}
+            >
+              <XIcon />
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">{dict.items.parLevelHelp}</p>
+          <AmountFields
+            label={dict.prepLists.qty}
+            quantityName="parQuantity"
+            unitName="parUnit"
+            quantity={parQty}
+            onQuantity={setParQty}
+            unit={parUnit}
+            onUnit={setParUnit}
+            placeholder={dict.items.parLevelPlaceholder}
+            customUnits={customUnits}
+          />
+        </div>
       )}
       {/* Collapsed "add" affordances share a row so they don't stack with dead space. */}
       {(!showPar || !showRecipe) && (
@@ -439,7 +482,9 @@ function ItemRow({
           href={`/items/${item.id}/recipe`}
           className="flex min-h-[44px] items-center gap-1.5 border-t px-3.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
         >
-          <BookOpenIcon className="size-4" />
+          {/* Plus vs. book so add and view are distinguishable at a glance, not just
+              by reading the label. */}
+          {hasRecipe ? <BookOpenIcon className="size-4" /> : <PlusIcon className="size-4" />}
           {hasRecipe ? dict.recipes.viewRecipe : dict.recipes.addRecipe}
         </Link>
       )}
@@ -601,12 +646,12 @@ function EditItemForm({
   }, [state, onDone])
 
   return (
-    <form action={action} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+    <form action={action} className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
       <input type="hidden" name="id" value={item.id} />
       {state?.error && <ErrorBanner message={state.error} />}
       <ItemPhotoControl itemId={item.id} name={item.name} imageUrl={imageUrl} />
       <Field name="name">
-        <FieldLabel>{dict.items.name}</FieldLabel>
+        <FieldLabel required>{dict.items.name}</FieldLabel>
         <Input
           type="text"
           name="name"
@@ -639,17 +684,38 @@ function EditItemForm({
         customUnits={customUnits}
       />
       {showPar ? (
-        <AmountFields
-          label={dict.items.parLevel}
-          quantityName="parQuantity"
-          unitName="parUnit"
-          quantity={parQty}
-          onQuantity={setParQty}
-          unit={parUnit}
-          onUnit={setParUnit}
-          placeholder={dict.items.parLevelPlaceholder}
-          customUnits={customUnits}
-        />
+        <div className="flex flex-col gap-3 rounded-lg border p-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold">{dict.items.parLevel}</h3>
+            {/* Clearing both fields is what actually removes the par level on save. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9"
+              aria-label={dict.items.removeParLevel}
+              onClick={() => {
+                setShowPar(false)
+                setParQty('')
+                setParUnit('')
+              }}
+            >
+              <XIcon />
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">{dict.items.parLevelHelp}</p>
+          <AmountFields
+            label={dict.prepLists.qty}
+            quantityName="parQuantity"
+            unitName="parUnit"
+            quantity={parQty}
+            onQuantity={setParQty}
+            unit={parUnit}
+            onUnit={setParUnit}
+            placeholder={dict.items.parLevelPlaceholder}
+            customUnits={customUnits}
+          />
+        </div>
       ) : (
         <Button
           type="button"

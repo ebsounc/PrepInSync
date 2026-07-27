@@ -49,7 +49,9 @@ export async function getPrepListsByRestaurant(
     .leftJoin(prepListEntries, eq(prepListEntries.prepListId, prepLists.id))
     .where(eq(prepLists.restaurantId, restaurantId))
     .groupBy(prepLists.id)
-    .orderBy(desc(prepLists.date), desc(prepLists.createdAt))
+    // `id` last so the order is total — lists created in one transaction (the demo seed)
+    // share a `created_at` and would otherwise come back in an arbitrary order per query.
+    .orderBy(desc(prepLists.date), desc(prepLists.createdAt), desc(prepLists.id))
   return rows
 }
 
@@ -103,7 +105,16 @@ export async function getPrepListEntries(
     .leftJoin(profiles, eq(profiles.id, prepListEntries.completedBy))
     .leftJoin(cookNoteProfile, eq(cookNoteProfile.id, prepListEntries.cookNoteBy))
     .where(and(eq(prepListEntries.prepListId, listId), eq(prepLists.restaurantId, restaurantId)))
-    .orderBy(desc(prepListEntries.isStarred), asc(prepListEntries.createdAt))
+    // `id` is the tie-break that makes this a TOTAL order. Without it, entries created
+    // in the same transaction share a `created_at` (now() is the transaction timestamp,
+    // and the demo seed bulk-inserts a whole list at once), leaving the sort keys tied —
+    // Postgres then returns tied rows in heap order, so checking an item off rewrote its
+    // tuple and made the row reappear somewhere else in the list.
+    .orderBy(
+      desc(prepListEntries.isStarred),
+      asc(prepListEntries.createdAt),
+      asc(prepListEntries.id)
+    )
 
   const fullName = (first: string | null, last: string | null) =>
     first || last ? `${first ?? ''} ${last ?? ''}`.trim() : null

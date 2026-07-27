@@ -43,6 +43,10 @@ export function RecipeView({
         initialIngredients={recipe.ingredients}
         initialSteps={recipe.instructions.map((s) => s.text ?? '')}
         onCancel={() => setEditing(false)}
+        // The cover photo control lives with the other edit affordances rather than
+        // sitting in the read view, where it was the only editing control on an
+        // otherwise read-only page.
+        coverPhoto={<CoverPhotoControl recipeId={recipe.id} itemId={itemId} hasCover={hasOwnCover} />}
       />
     )
   }
@@ -57,10 +61,6 @@ export function RecipeView({
           className="max-h-72 w-full rounded-xl border object-cover"
         />
       )}
-      {canManage && (
-        <CoverPhotoControl recipeId={recipe.id} itemId={itemId} hasCover={hasOwnCover} />
-      )}
-
       <section>
         <h2 className="mb-2 font-medium">{dict.recipes.ingredientsHeading}</h2>
         <ul className="flex flex-col gap-1">

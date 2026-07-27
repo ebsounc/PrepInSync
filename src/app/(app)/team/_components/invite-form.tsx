@@ -1,9 +1,15 @@
 'use client'
 
-import { useActionState } from 'react'
+import { startTransition, useState, useActionState } from 'react'
 import { Loader2Icon } from 'lucide-react'
 import { inviteTeamMemberAction } from '@/app/(app)/team/actions'
-import { Field, FieldLabel, FieldError } from '@/components/ui/field'
+import {
+  collectErrors,
+  emailError,
+  requiredError,
+  type FieldErrors,
+} from '@/lib/form-validation'
+import { Field, FieldLabel, FieldMessage } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,10 +25,41 @@ import { useT } from '@/lib/i18n/client'
 export function InviteForm() {
   const { dict, t } = useT()
   const [state, action, isPending] = useActionState(inviteTeamMemberAction, null)
+  const [errors, setErrors] = useState<FieldErrors>({})
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    const data = new FormData(form)
+    const get = (name: string) => String(data.get(name) ?? '')
+
+    const found = collectErrors({
+      firstName: requiredError(get('firstName'), dict),
+      lastName: requiredError(get('lastName'), dict),
+      email: emailError(get('email'), dict),
+      role: requiredError(get('role'), dict),
+    })
+    setErrors(found)
+    if (Object.keys(found).length > 0) {
+      form.querySelector<HTMLElement>(`[name="${Object.keys(found)[0]}"]`)?.focus()
+      return
+    }
+    // Transition required: without it isPending never flips.
+    startTransition(() => action(data))
+  }
+
+  const clearError = (name: string) =>
+    setErrors((prev) => {
+      if (!prev[name]) return prev
+      const { [name]: _removed, ...rest } = prev
+      return rest
+    })
 
   return (
     <form
-      action={action}
+      onSubmit={handleSubmit}
+      noValidate
+      // Remount on success to clear the form for the next invite.
       key={state?.success ? state.invitedEmail : 'invite-form'}
       className="flex flex-col gap-4"
     >
@@ -38,31 +75,52 @@ export function InviteForm() {
       )}
       <div className="grid grid-cols-2 gap-3">
         <Field name="firstName">
-          <FieldLabel>{dict.team.firstName}</FieldLabel>
-          <Input type="text" name="firstName" required placeholder={dict.team.firstNamePlaceholder} />
-          <FieldError />
+          <FieldLabel required>{dict.team.firstName}</FieldLabel>
+          <Input
+            type="text"
+            name="firstName"
+            required
+            aria-invalid={Boolean(errors.firstName)}
+            onInput={() => clearError('firstName')}
+            placeholder={dict.team.firstNamePlaceholder}
+          />
+          {errors.firstName && <FieldMessage>{errors.firstName}</FieldMessage>}
         </Field>
         <Field name="lastName">
-          <FieldLabel>{dict.team.lastName}</FieldLabel>
-          <Input type="text" name="lastName" required placeholder={dict.team.lastNamePlaceholder} />
-          <FieldError />
+          <FieldLabel required>{dict.team.lastName}</FieldLabel>
+          <Input
+            type="text"
+            name="lastName"
+            required
+            aria-invalid={Boolean(errors.lastName)}
+            onInput={() => clearError('lastName')}
+            placeholder={dict.team.lastNamePlaceholder}
+          />
+          {errors.lastName && <FieldMessage>{errors.lastName}</FieldMessage>}
         </Field>
       </div>
       <Field name="email">
-        <FieldLabel>{dict.team.email}</FieldLabel>
+        <FieldLabel required>{dict.team.email}</FieldLabel>
         <Input
           type="email"
           name="email"
           required
+          aria-invalid={Boolean(errors.email)}
+          onInput={() => clearError('email')}
           placeholder={dict.team.emailPlaceholder}
           autoComplete="off"
         />
-        <FieldError />
+        {errors.email && <FieldMessage>{errors.email}</FieldMessage>}
       </Field>
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">{dict.team.role}</label>
-        <SelectField name="role">
-          <SelectTrigger>
+        <label className="text-sm font-medium text-foreground">
+          {dict.team.role}
+          <span aria-hidden="true" className="ml-0.5 text-destructive">
+            *
+          </span>
+        </label>
+        <SelectField name="role" onValueChange={() => clearError('role')}>
+          <SelectTrigger aria-invalid={Boolean(errors.role)}>
             <SelectValue placeholder={dict.team.selectRole} />
           </SelectTrigger>
           <SelectContent>
@@ -73,6 +131,7 @@ export function InviteForm() {
             ))}
           </SelectContent>
         </SelectField>
+        {errors.role && <FieldMessage>{errors.role}</FieldMessage>}
       </div>
       <Button type="submit" className="w-full min-h-[52px] text-base" disabled={isPending}>
         {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.team.sendInvite}

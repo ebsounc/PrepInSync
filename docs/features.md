@@ -29,6 +29,16 @@ Stack + architecture live in `docs/overview.md` and `docs/database.md`; this is 
 - **Auth is verified server-side on every authenticated route and every mutation** — never trusted
   from the client. Middleware refreshes the Supabase session on each request; layouts enforce the
   redirects.
+- **Signup starts with the language choice**, and picking one re-renders the whole page — including
+  `<html lang>` and the card heading — in that language, so the rest of signup is read in it.
+- **Forms validate in the app, not the browser** (`noValidate` + per-field checks). The browser's own
+  messages are localized to the *browser's* language, not the user's, so a Spanish-speaking cook on an
+  English phone got English errors. Required fields carry a red asterisk (which is why optional ones
+  no longer say "(optional)"), the invalid field gets a red outline via `aria-invalid`, and the message
+  appears under it in the user's language.
+- **A rejected submit keeps what you typed.** Forms dispatch their action manually inside a transition
+  rather than via `<form action>`, because React 19 resets any uncontrolled form whose action is a
+  function the moment it settles — which previously blanked *every* field when one failed.
 
 ## 2. Roles, ranks & permissions
 
@@ -77,9 +87,12 @@ Stack + architecture live in `docs/overview.md` and `docs/database.md`; this is 
   - **Par level** (quantity + unit) — the target stock to keep on hand; informational.
 - **Decimal quantities** (e.g. `1.5 quarts`), stored as `numeric`. Display trims trailing zeros, and
   a **quantity-less** amount (e.g. "salt to taste") renders as blank — **not** "0".
-- **Searchable item list** with a filter field that matches both the **translated (displayed) name
-  and the source-language name**, diacritic-insensitive ("jalapeno" finds "jalapeño").
+- **Searchable item list** matching both the **translated (displayed) name and the source-language
+  name**, diacritic-insensitive ("jalapeno" finds "jalapeño").
 - **Inline add/edit**; a new item can carry an **inline recipe** created in the same step.
+- **Par level is a removable block** with a one-tap remove and a line explaining the term. Clearing it
+  otherwise meant blanking the quantity *and* clearing the unit separately — doing only one tripped a
+  validation error, which made removing a par level effectively undiscoverable.
 
 ## 5. Units of measure
 
@@ -87,12 +100,18 @@ Stack + architecture live in `docs/overview.md` and `docs/database.md`; this is 
   **pluralized for display** ("2 lbs"), with **hand-curated Spanish forms** — built-in units are
   translated from a static table and **never** hit the LLM. Metric abbreviations (kg, g, L) are the
   same in both languages; "each" → "c/u".
-- **Custom restaurant-defined units** (e.g. "lexan", "6-pan") — added inline from the item/list forms,
-  saved for reuse, and (because they can't live in the fixed glossary) **translated at runtime** via
-  the content-translation cache.
+- **Custom restaurant-defined units** (e.g. "lexan", "6-pan") — added from the item/list forms *or*
+  from Settings, saved for reuse, and (because they can't live in the fixed glossary) **translated at
+  runtime** via the content-translation cache.
+- **Settings shows one combined Units list** — the 14 built-ins (read-only, in their curated
+  weight → volume → container order) alongside the restaurant's own (deletable), so "what units do we
+  have?" has a single answer. Built-ins stay read-only deliberately: they're a code-level table whose
+  values are stored as free text on existing items, so renaming or deleting one would orphan data.
 - Units are stored as **free text** on items and entries; writes are validated against the built-in
   set + the restaurant's custom units.
-- A **unit picker** with inline "add a unit," optional clear, big touch targets.
+- A **unit picker** with "add a unit," optional clear, big touch targets. Adding opens a **dialog**
+  (a bottom sheet on phones) rather than expanding inline — the picker sits in a half-width grid cell,
+  so an inline text field wedged between two buttons was unusable one-handed.
 
 ## 6. Prep lists & the prep workflow
 
@@ -112,6 +131,11 @@ Stack + architecture live in `docs/overview.md` and `docs/database.md`; this is 
 
 **Working a list (all staff):**
 - Everyone sees the **full list**; **starred priority items float to the top**.
+- **Row order is a total order** — starred, then created, then id. The id tie-break matters: entries
+  added in one transaction share a `created_at` (Postgres `now()` is the transaction timestamp), and
+  with every sort key tied, checking an item off rewrote its row and Postgres returned it at a
+  different position, so items appeared to jump around the list at random. Checking off now never
+  moves a row.
 - **Tap to complete** — the whole left region of a row is the toggle (a big, greasy-hands target).
   The checkbox flips **optimistically** (instant), then persists.
 - **Completion is attributed** — who + when are recorded, shown as "Done by {name}".
@@ -219,7 +243,18 @@ who don't share a language work off the same list.
 - Server validates image type + size; all Storage mutations go through a service-role admin client
   (bypassing RLS, which stands as defense-in-depth); orphan cleanup on delete is best-effort.
 
-## 12. Appearance & theming (per-user)
+## 12. Settings & account
+
+- **Account card** — your name, your **role**, your email, and sign-out, visible to everyone. Both
+  gaps this closes are real: the app shell only showed your name from `sm:` up (never on a phone), and
+  role labels appeared solely on the management-only Team page, so a line cook could not see their own
+  role anywhere. Sign-out moved here from the header, which frees that space on every screen; the
+  locked-out screen keeps its own sign-out since those users can't reach Settings.
+- **Restaurant settings** put timezone last — it's auto-detected at onboarding and rarely touched, but
+  it can't be removed: it decides which lists count as "today" on the dashboard, which the help text
+  under it now says.
+
+## 13. Appearance & theming (per-user)
 
 - **Per-user theme** — Light / Dark / **System** — and a **switchable accent color** (8 presets plus a
   custom color picker), persisted to the profile so they **follow the user across devices**, not just
@@ -233,7 +268,7 @@ who don't share a language work off the same list.
   transition (login, invite/recovery, logout) so a shared device never carries one user's theme into
   another's session.
 
-## 13. Graceful offline (dead zones)
+## 14. Graceful offline (dead zones)
 
 For a cook in a walk-in cooler with no signal:
 - **Optimistic completions** — checking an item off flips instantly whether or not there's signal.
@@ -250,7 +285,7 @@ For a cook in a walk-in cooler with no signal:
 - This is graceful degradation, **not** full offline mode — there's no local database or offline
   page-reload; it targets dead zones while the app is open.
 
-## 14. Branding & mobile UX
+## 15. Branding & mobile UX
 
 - **PrepInSync** — Sora typeface, a green accent (user-switchable, §12), light/dark.
 - **Logo** — an outline clipboard with a check, drawn as inline SVG so it **recolors to the user's
@@ -261,7 +296,7 @@ For a cook in a walk-in cooler with no signal:
 - Persistent app shell: sticky top bar with the brand, a bottom tab bar (Home / Lists / Items / Team —
   Team shown only to management), and the offline banner.
 
-## 15. Security & architecture (cross-cutting, all intentional)
+## 16. Security & architecture (cross-cutting, all intentional)
 
 - **Row-level security on every table** (10+ tables); one account = one restaurant, and every
   tenant-scoped row is isolated by `restaurant_id`.
@@ -275,7 +310,7 @@ For a cook in a walk-in cooler with no signal:
   restaurant/role/permission from the invite row, never from the editable auth metadata.
 - **No secrets in code** — env vars for dev and prod; `.env.local` gitignored.
 
-## 16. Protecting the AI layer (cost & prompt integrity)
+## 17. Protecting the AI layer (cost & prompt integrity)
 
 The app holds an Anthropic API key and exposes AI features to a public demo whose password is
 printed in the README, so the LLM surface is treated as an abuse target rather than a trusted one.

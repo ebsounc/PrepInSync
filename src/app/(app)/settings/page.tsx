@@ -6,6 +6,8 @@ import { getRestaurantUnits } from '@/lib/db/queries/restaurant-units'
 import { SettingsIcon } from 'lucide-react'
 import { isManagementRole } from '@/lib/auth/roles'
 import { getDictionary } from '@/lib/i18n'
+import { UNITS } from '@/lib/units'
+import { getCustomUnitLabelMap } from '@/lib/translation/apply'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/page-header'
 import { RestaurantForm } from './_components/restaurant-form'
@@ -13,6 +15,7 @@ import { UnitsManager } from './_components/units-manager'
 import { TransferOwnership } from './_components/transfer-ownership'
 import { LanguageForm } from './_components/language-form'
 import { AppearanceForm } from './_components/appearance-form'
+import { AccountCard } from './_components/account-card'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -24,18 +27,20 @@ export default async function SettingsPage() {
   const profile = await getProfileByUserId(user.id)
   if (!profile?.restaurantId) redirect('/onboarding')
 
-  const dict = getDictionary(profile.preferredLanguage)
+  const lang = profile.preferredLanguage
+  const dict = getDictionary(lang)
   // Language is a per-user setting — shown to everyone. The rest of the page is
   // management-only.
   const isManagement = isManagementRole(profile.role)
   const isOwner = profile.role === 'owner'
-  const [restaurant, units, members] = isManagement
+  const [restaurant, units, members, customUnitLabels] = isManagement
     ? await Promise.all([
         getRestaurantById(profile.restaurantId),
         getRestaurantUnits(profile.restaurantId),
         isOwner ? getProfilesByRestaurant(profile.restaurantId) : Promise.resolve([]),
+        getCustomUnitLabelMap(profile.restaurantId, lang),
       ])
-    : [null, [], []]
+    : [null, [], [], {} as Record<string, string>]
   // Eligible new owners: active members other than the current owner.
   const transferTargets = members
     .filter((m) => m.id !== profile.id && m.isActive)
@@ -44,6 +49,13 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6">
       <PageHeader icon={SettingsIcon} title={dict.settings.heading} className="mb-0" />
+
+      <AccountCard
+        dict={dict}
+        name={`${profile.firstName} ${profile.lastName}`.trim()}
+        roleLabel={dict.roles[profile.role]}
+        email={user.email}
+      />
 
       <Card>
         <CardHeader>
@@ -89,7 +101,18 @@ export default async function SettingsPage() {
               <CardDescription>{dict.settings.customUnitsDesc}</CardDescription>
             </CardHeader>
             <CardContent>
-              <UnitsManager units={units.map((u) => ({ id: u.id, label: u.label }))} />
+              {/* Two label sources on purpose: built-ins carry hand-curated Spanish in
+                  lib/units.ts, while custom units go through the LLM translation cache. */}
+              <UnitsManager
+                builtIns={UNITS.map((u) => ({
+                  value: u.value,
+                  label: lang === 'es' ? u.labelEs : u.label,
+                }))}
+                custom={units.map((u) => ({
+                  id: u.id,
+                  label: customUnitLabels[u.label] ?? u.label,
+                }))}
+              />
             </CardContent>
           </Card>
 

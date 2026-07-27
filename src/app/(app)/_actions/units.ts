@@ -47,8 +47,10 @@ export async function addCustomUnitAction(label: string): Promise<{ error?: stri
     sourceLanguage: profile.preferredLanguage,
     createdBy: profile.id,
   })
-  // Surface the new unit (and its pending translation) in the builder forms.
+  // Surface the new unit (and its pending translation) in the builder forms, and in
+  // the Settings units list, which can now add them too.
   revalidatePath('/items')
   revalidatePath('/prep-lists', 'layout')
+  revalidatePath('/settings')
   return {}
 }

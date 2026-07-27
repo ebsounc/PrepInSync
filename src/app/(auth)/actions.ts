@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
@@ -13,6 +14,20 @@ import { resetDemoData } from '@/lib/demo-seed'
 
 // Zod messages carry a dotted dictionary KEY; resolved to the user's language on
 // return (auth pages have no profile, so the dict comes from the lang cookie).
+
+// ---------------------------------------------------------------------------
+// Auth-page language
+// ---------------------------------------------------------------------------
+
+// The signup form's language picker takes effect immediately instead of only applying
+// to the account once it exists. Writing the cookie + revalidating re-renders the whole
+// page in the chosen language — including `<html lang>` and the server-rendered card
+// header, neither of which a client-only switch could reach. Mirrors the Settings
+// language setter (settings/actions.ts).
+export async function setAuthLanguageAction(language: string) {
+  await setCookieLang(asLang(language))
+  revalidatePath('/', 'layout')
+}
 
 // ---------------------------------------------------------------------------
 // Signup

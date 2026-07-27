@@ -36,20 +36,21 @@ export default async function TeamPage() {
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
       <PageHeader icon={UsersIcon} title={dict.team.heading} className="mb-6" />
 
-      <div className="mx-auto mb-8 max-w-sm">
-        <Card>
-          <CardHeader>
-            <CardTitle>{dict.team.inviteTitle}</CardTitle>
-            <CardDescription>{dict.team.inviteDesc}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <InviteForm />
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* Roster first: seeing who's on the team is the reason you open this page;
+          inviting is the occasional action. */}
       <h2 className="mb-3 text-lg font-medium">{dict.team.rosterHeading}</h2>
       <Roster members={members} currentUserId={user.id} />
+
+      {/* Full width to match the roster — it was max-w-sm inside a max-w-2xl page. */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>{dict.team.inviteTitle}</CardTitle>
+          <CardDescription>{dict.team.inviteDesc}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <InviteForm />
+        </CardContent>
+      </Card>
     </div>
   )
 }

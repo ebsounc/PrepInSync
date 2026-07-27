@@ -142,7 +142,10 @@ function DisplayEntry({
                 completed && 'text-muted-foreground line-through'
               )}
             >
-              {entry.isStarred && (
+              {/* Only for people without the StarToggle below — for them this is the
+                  only priority signal. A manager reads the same state off the toggle,
+                  so showing both would just be the same star twice. */}
+              {entry.isStarred && !canManage && (
                 <StarIcon className="size-4 shrink-0 fill-current text-amber-500" />
               )}
               <span className="truncate">{entry.itemNameDisplay}</span>
@@ -184,10 +187,20 @@ function DisplayEntry({
         </Link>
       )}
 
+      {/* Icon-only: the pencil and trash read clearly on their own, and dropping the
+          labels removes a row of clutter from every entry. Size kept at 48px so the
+          touch target doesn't shrink with the label. */}
       {canManage && (
         <div className="flex gap-1 border-t px-2 py-1">
-          <Button type="button" variant="ghost" size="sm" className="min-h-[48px]" onClick={onEdit}>
-            <PencilIcon /> {dict.common.edit}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-12"
+            aria-label={dict.common.edit}
+            onClick={onEdit}
+          >
+            <PencilIcon />
           </Button>
           <RemoveEntryButton id={entry.id} />
         </div>
@@ -222,18 +235,13 @@ function RemoveEntryButton({ id }: { id: string }) {
     <Button
       type="button"
       variant="ghost"
-      size="sm"
-      className="min-h-[48px] text-destructive"
+      size="icon"
+      className="size-12 text-destructive"
+      aria-label={dict.common.remove}
       disabled={pending}
       onClick={() => start(() => removeEntryAction(id).then(() => {}))}
     >
-      {pending ? (
-        <Loader2Icon className="size-4 animate-spin" />
-      ) : (
-        <>
-          <Trash2Icon /> {dict.common.remove}
-        </>
-      )}
+      {pending ? <Loader2Icon className="size-4 animate-spin" /> : <Trash2Icon />}
     </Button>
   )
 }

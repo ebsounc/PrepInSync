@@ -9,7 +9,8 @@ export async function getPrepItemsByRestaurant(restaurantId: string): Promise<Pr
     .select()
     .from(prepItems)
     .where(eq(prepItems.restaurantId, restaurantId))
-    .orderBy(asc(prepItems.name))
+    // `id` breaks ties so two items sharing a name keep a stable relative order.
+    .orderBy(asc(prepItems.name), asc(prepItems.id))
 }
 
 // Scoped lookup — returns null if the item isn't in the caller's restaurant.

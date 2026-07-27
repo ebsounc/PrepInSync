@@ -7,7 +7,7 @@ import { getPrepItemById } from '@/lib/db/queries/prep-items'
 import { getRecipeByItemId } from '@/lib/db/queries/recipes'
 import { getSignedUrl } from '@/lib/storage'
 import { translatePrepItems, translateRecipe, getCustomUnitLabelMap } from '@/lib/translation/apply'
-import { getDictionary, interpolate } from '@/lib/i18n'
+import { getDictionary } from '@/lib/i18n'
 import { TranslationCorrections, type Correctable } from '@/components/translation-corrections'
 import { RecipeView } from './_components/recipe-view'
 import { RecipeEditor } from './_components/recipe-editor'
@@ -93,9 +93,9 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       >
         <ArrowLeftIcon className="size-4" /> {dict.recipes.back}
       </Link>
-      <h1 className="mb-4 text-2xl font-bold tracking-tight sm:text-3xl">
-        {interpolate(dict.recipes.recipeFor, { item: itemName })}
-      </h1>
+      {/* Just the item name — the page is already visibly a recipe, so the
+          "Recipe:" prefix was only eating horizontal space on a phone. */}
+      <h1 className="mb-4 text-2xl font-bold tracking-tight sm:text-3xl">{itemName}</h1>
 
       {translatedRecipe ? (
         <RecipeView

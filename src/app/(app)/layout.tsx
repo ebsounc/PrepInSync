@@ -59,8 +59,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="hidden text-sm text-muted-foreground sm:block">{displayName}</span>
             {/* Everyone reaches Settings for their own theme + language. The page
                 shows management-only cards (restaurant, units, transfer) only to
-                management; cooks just get Appearance + Language. */}
-            {onboarded && (
+                management; cooks just get Account, Appearance + Language.
+                Sign-out lives there too, in the Account card — it was taking up
+                header room on every screen for a once-a-shift action. */}
+            {onboarded ? (
               <Button
                 render={<Link href="/settings" />}
                 nativeButton={false}
@@ -70,12 +72,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               >
                 <SettingsIcon />
               </Button>
+            ) : (
+              // Mid-onboarding there's no Settings page to reach, so this is the only
+              // way out — don't strand someone who signed up by mistake.
+              <form action={logoutAction}>
+                <Button type="submit" variant="outline" size="sm">
+                  {dict.common.signOut}
+                </Button>
+              </form>
             )}
-            <form action={logoutAction}>
-              <Button type="submit" variant="outline" size="sm">
-                {dict.common.signOut}
-              </Button>
-            </form>
           </div>
         </header>
         {/* Pad the bottom so the fixed nav never covers content */}
