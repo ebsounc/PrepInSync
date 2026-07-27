@@ -1,7 +1,13 @@
 import 'server-only'
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { db, glossaryOverrides, translations } from '@/lib/db'
 import type { GlossaryOverride } from '@/lib/ai/glossary'
+
+// Every override becomes a line in the translation system prompt, so an unbounded
+// fetch would let one restaurant grow its own prompt without limit — both a cost
+// amplifier and a way to crowd out the real glossary. Newest wins; formatOverrides
+// enforces the same ceiling again when rendering.
+const MAX_GLOSSARY_OVERRIDES = 100
 
 // Restaurant overrides for one translation direction, injected into prompts.
 export async function getGlossaryOverrides(
@@ -24,6 +30,8 @@ export async function getGlossaryOverrides(
         eq(glossaryOverrides.targetLanguage, targetLanguage)
       )
     )
+    .orderBy(desc(glossaryOverrides.updatedAt))
+    .limit(MAX_GLOSSARY_OVERRIDES)
   return rows
 }
 

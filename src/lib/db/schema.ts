@@ -5,6 +5,7 @@ import {
   timestamp,
   boolean,
   numeric,
+  integer,
   jsonb,
   date,
   unique,
@@ -380,4 +381,32 @@ export const glossaryOverrides = pgTable(
       t.targetLanguage
     ),
   ]
+)
+
+// ---------------------------------------------------------------------------
+// rate_limits
+// Fixed-window counters guarding the paid LLM endpoints (recipe paste/scan and
+// the translation cache). Deliberately NOT tenant-scoped by column: the scope
+// lives inside `bucket_key` ("scan:user:<id>", "translate:restaurant:<id>"), so
+// one table serves per-user, per-restaurant, and future global limits.
+//
+// The unique (bucket_key, window_start) pair is what makes the counter correct:
+// the limiter increments via INSERT ... ON CONFLICT DO UPDATE, which is atomic in
+// a single statement, so concurrent serverless instances can't lose a count to a
+// read-then-write race. See lib/db/queries/rate-limit.ts.
+//
+// No RLS policy is written for this table — RLS is enabled and left with zero
+// policies, which denies anon/authenticated outright. Only the server (postgres
+// role, which bypasses RLS) ever touches it. See supabase/add_rate_limits_rls.sql.
+// ---------------------------------------------------------------------------
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    bucketKey: text('bucket_key').notNull(),
+    windowStart: timestamp('window_start').notNull(),
+    count: integer('count').notNull().default(0),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.bucketKey, t.windowStart)]
 )

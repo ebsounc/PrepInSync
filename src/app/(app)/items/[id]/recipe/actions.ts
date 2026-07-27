@@ -14,6 +14,8 @@ import {
   setRecipeImageUrl,
 } from '@/lib/db/queries/recipes'
 import { parseRecipe, scanRecipe, type ParsedRecipe } from '@/lib/ai'
+import { consumeRateLimits } from '@/lib/db/queries/rate-limit'
+import { recipeAiRules } from '@/lib/rate-limits'
 import { parseRecipeJson, type ParsedRecipePayload } from '@/lib/recipes/payload'
 import { uploadImage, deleteImage, deletePrefix, recipeCoverPath } from '@/lib/storage'
 import { decodeImageInput } from '@/lib/images/validate'
@@ -165,6 +167,11 @@ export async function parseRecipeAction(
     }
   }
 
+  // Rate limited AFTER validation so a malformed request doesn't burn quota, but
+  // BEFORE the model call — the whole point is to not spend Anthropic credit.
+  const limit = await consumeRateLimits(recipeAiRules(ctx.restaurantId, ctx.profile.id))
+  if (!limit.allowed) return { error: ctx.dict.errors.recipes.rateLimited }
+
   try {
     const data = await parseRecipe(text.data, ctx.profile.preferredLanguage)
     return { data }
@@ -192,6 +199,11 @@ export async function scanRecipeAction(input: {
           : ctx.dict.errors.recipes.scanImageInvalid,
     }
   }
+
+  // Same quota as the paste path (see recipeAiRules) — vision is the pricier of the
+  // two, so it must not be the cheaper one to abuse.
+  const limit = await consumeRateLimits(recipeAiRules(ctx.restaurantId, ctx.profile.id))
+  if (!limit.allowed) return { error: ctx.dict.errors.recipes.rateLimited }
 
   try {
     const data = await scanRecipe(decoded.base64, decoded.mediaType, ctx.profile.preferredLanguage)

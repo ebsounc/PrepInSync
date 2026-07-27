@@ -1030,3 +1030,34 @@ REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM anon, authenti
 -- Future tables created by postgres (Drizzle migrations) must not re-open writes.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE INSERT, UPDATE, DELETE ON TABLES FROM anon, authenticated;
+
+
+-- ---------------------------------------------------------------------------
+-- rate_limits (migration 0009) — fixed-window counters guarding the paid LLM
+-- endpoints (recipe paste/scan, translation cache). Appended after the hardening
+-- block above because it must inherit the REVOKE posture, not precede it.
+--
+-- NOT tenant-scoped by column: the scope lives inside bucket_key
+-- ("recipe-ai:user:<id>", "translate:restaurant:<id>"). So rather than an
+-- isolation policy it gets RLS enabled with ZERO policies, which denies anon and
+-- authenticated outright. Only the server reaches it, via the postgres role
+-- (Drizzle), which bypasses RLS as table owner.
+--
+-- These counters ARE the cost control: a user who could reach this table through
+-- the Data API could delete their own rows and reset their quota, so no read or
+-- write is granted to the API roles.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.rate_limits (
+  id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+  bucket_key text NOT NULL,
+  window_start timestamp without time zone NOT NULL,
+  count integer DEFAULT 0 NOT NULL,
+  updated_at timestamp without time zone DEFAULT now() NOT NULL,
+  CONSTRAINT rate_limits_bucket_key_window_start_unique UNIQUE (bucket_key, window_start)
+);
+
+ALTER TABLE public.rate_limits ENABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON TABLE public.rate_limits TO postgres;
+GRANT ALL ON TABLE public.rate_limits TO service_role;
+REVOKE ALL ON TABLE public.rate_limits FROM anon, authenticated;

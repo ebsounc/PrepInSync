@@ -142,8 +142,12 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-# Claude Code personal settings
-.claude/settings.local.json
+# Local development tooling and internal working notes — kept out of the repo so the
+# published project is the app itself, not the scaffolding used to build it.
+# These files still exist locally; they are simply untracked.
+CLAUDE.md
+.claude/
+docs/phase-*.md
 
 # Playwright MCP run artifacts (snapshots/screenshots from local QA)
 .playwright-mcp/

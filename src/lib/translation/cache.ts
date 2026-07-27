@@ -4,6 +4,8 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db, translations } from '@/lib/db'
 import { translateBatch } from '@/lib/ai'
 import { getGlossaryOverrides } from '@/lib/db/queries/glossary'
+import { consumeRateLimit } from '@/lib/db/queries/rate-limit'
+import { translationRule } from '@/lib/rate-limits'
 
 export type TranslatableField = {
   entityType: string
@@ -111,6 +113,14 @@ export async function getTranslations(
     await Promise.all(
       chunks.map(async (chunkGroup) => {
         try {
+          // One unit of quota per LLM call, charged per chunk since that's what
+          // actually costs money. Over quota throws into the catch below, which is
+          // already the "show source text, persist nothing, retry next render" path —
+          // so a rate-limited cook sees untranslated text rather than an error, and it
+          // heals itself when the window rolls over.
+          const { allowed } = await consumeRateLimit(translationRule(restaurantId))
+          if (!allowed) throw new Error('translation rate limit exceeded')
+
           const translated = await translateBatch({
             items: chunkGroup.map((g) => ({ id: g.key, text: g.sourceText })),
             sourceLanguage,

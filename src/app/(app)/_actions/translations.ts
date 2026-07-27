@@ -11,6 +11,22 @@ import {
 import { getDictionary } from '@/lib/i18n'
 import { getActionDict } from '@/lib/i18n/server'
 
+// Both of these end up as a line in the translation SYSTEM prompt (formatOverrides in
+// lib/ai/glossary.ts), where a value spanning multiple lines could forge its own prompt
+// section. They're normalized to a single line rather than rejected: corrections apply
+// to any translated field, including recipe steps and cook notes, which are legitimately
+// long and may contain newlines — rejecting those would break a working feature. The
+// rendered form was always a single line anyway, so flattening only makes that explicit.
+// formatOverrides re-applies the same normalization on read.
+const singleLine = (value: string) =>
+  Array.from(value)
+    .map((ch) => (ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) === 0x7f ? ' ' : ch))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const glossaryTerm = z.string().trim().min(1).max(500).transform(singleLine)
+
 // Fields a member can correct the translation of. Keep in sync with the entity
 // types used by the translation cache.
 const overrideSchema = z.object({
@@ -19,10 +35,10 @@ const overrideSchema = z.object({
   // Recipe subfield keys like "ingredient:12:name" are longer than the flat item
   // fields, so allow a bit more room than the original 40.
   field: z.string().trim().min(1).max(60),
-  sourceText: z.string().trim().min(1).max(500),
+  sourceText: glossaryTerm,
   sourceLanguage: z.enum(['en', 'es']),
   targetLanguage: z.enum(['en', 'es']),
-  preferredTranslation: z.string().trim().min(1).max(500),
+  preferredTranslation: glossaryTerm,
 })
 
 // Any active member can correct a translation. The correction is stored as a

@@ -89,7 +89,7 @@ user's own restaurant too, even though writes normally go server-side.
 
 ## RLS summary (per table)
 
-RLS is **enabled on all 10 tables**. Policies as currently deployed:
+RLS is **enabled on all 11 tables**. Policies as currently deployed:
 
 | Table | Policy | Command | Rule |
 |---|---|---|---|
@@ -106,11 +106,34 @@ RLS is **enabled on all 10 tables**. Policies as currently deployed:
 | `glossary_overrides` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
 | `invites` | users read own restaurant invites | SELECT | `restaurant_id` = caller's restaurant (writes are server-side) |
 | `translations` | restaurant isolation | ALL | `restaurant_id` = caller's restaurant |
+| `rate_limits` | *(none — deny all)* | — | RLS enabled with **zero policies**; privileges also revoked from `anon`/`authenticated` |
 
 Source: [`supabase/rls_and_triggers.sql`](../supabase/rls_and_triggers.sql),
 [`supabase/add_invites_table.sql`](../supabase/add_invites_table.sql),
-[`supabase/add_restaurant_units_rls.sql`](../supabase/add_restaurant_units_rls.sql), and
+[`supabase/add_restaurant_units_rls.sql`](../supabase/add_restaurant_units_rls.sql),
+[`supabase/add_rate_limits_rls.sql`](../supabase/add_rate_limits_rls.sql), and
 [`supabase/add_recipe_images_storage.sql`](../supabase/add_recipe_images_storage.sql) (Storage — below).
+
+### Rate limiting (`rate_limits`)
+
+The one table that is **not** tenant-scoped by column — the scope lives inside
+`bucket_key` (`recipe-ai:user:<id>`, `translate:restaurant:<id>`), so a single table
+serves per-user, per-restaurant, and any future global limit. Because there is no
+`restaurant_id` to key an isolation policy on, it instead gets the strictest posture in
+the schema: **RLS enabled with zero policies** (which denies `anon`/`authenticated`
+outright) plus an explicit `REVOKE`. Only the server reaches it, through the postgres
+role, which bypasses RLS as table owner.
+
+That strictness is the point: these counters *are* the cost control on the Anthropic
+key. A user who could reach the table through the Data API could delete their own rows
+and reset their quota.
+
+Counting is a fixed window incremented by a single `INSERT … ON CONFLICT DO UPDATE`,
+which is atomic — a `SELECT`-then-`UPDATE` would let two concurrent serverless
+instances lose an increment. Rows are cleaned opportunistically (~1% of calls) rather
+than on a schedule, since the stack has no cron. Limiter code:
+[`src/lib/db/queries/rate-limit.ts`](../src/lib/db/queries/rate-limit.ts); the quotas
+themselves are in [`src/lib/rate-limits.ts`](../src/lib/rate-limits.ts).
 
 ### Translation isolation (Phase 3)
 
@@ -154,7 +177,7 @@ Both lists come from the shared `ROLES` / `LANGUAGES` consts in `schema.ts`, so 
 can't drift. `restaurants.list_default_day` follows the same pattern (`LIST_DAYS` const +
 CHECK, migration `0003`). Columns stay `text` (not Postgres `ENUM` types) so adding a v2
 language is a one-line constraint change, consistent with the lazy-translation design in
-`CLAUDE.md`.
+[`docs/overview.md`](overview.md).
 
 ---
 
@@ -180,8 +203,8 @@ language is a one-line constraint change, consistent with the lazy-translation d
 The `translations` table is a lazy cache keyed by
 `(entity_type, entity_id, field, target_language)`, with `source_hash` (MD5 of the
 source text) for automatic staleness detection. Full design rules are in
-`CLAUDE.md` ("Translation rules") and the table comment in `schema.ts` — not
-repeated here.
+[`docs/features.md`](features.md) (§9, "Content translation") and the table comment in
+`schema.ts` — not repeated here.
 
 ### Recipe fields (Phase 4)
 

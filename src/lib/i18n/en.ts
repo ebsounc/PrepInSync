@@ -426,6 +426,7 @@ export const en = {
       pasteTooLong: 'That’s too long to parse. Trim it down and try again.',
       parseFailed: 'Couldn’t read that recipe. Enter it manually below.',
       scanFailed: 'Couldn’t read that photo. Try a clearer photo or enter it manually below.',
+      rateLimited: 'Too many recipe scans for now. Try again later, or enter it manually below.',
       scanImageInvalid: 'That image type isn’t supported. Use a JPG or PNG.',
       scanTooLarge: 'That image is too large. Try a smaller photo.',
       imageInvalid: 'That image type isn’t supported. Use a JPG or PNG.',

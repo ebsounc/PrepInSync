@@ -275,6 +275,39 @@ For a cook in a walk-in cooler with no signal:
   restaurant/role/permission from the invite row, never from the editable auth metadata.
 - **No secrets in code** — env vars for dev and prod; `.env.local` gitignored.
 
+## 16. Protecting the AI layer (cost & prompt integrity)
+
+The app holds an Anthropic API key and exposes AI features to a public demo whose password is
+printed in the README, so the LLM surface is treated as an abuse target rather than a trusted one.
+
+- **Rate limiting on every paid endpoint**, backed by **Postgres**, not process memory —
+  serverless instances scale out and cold-start, so an in-memory counter would silently reset.
+  Recipe paste/scan is bounded **per user and per restaurant**; translation is bounded per
+  restaurant. Counting is a fixed window incremented by a **single atomic statement**, so
+  concurrent instances can't lose a count to a read-then-write race.
+  - **The public demo gets its own much tighter quota** — it's the one account whose credentials
+    everyone already has. Limits stay non-zero so a visitor can still try the flagship scan.
+  - **The limiter fails open** on a database error (a limiter outage means the DB is down, and
+    blocking every chef is worse than briefly losing a cost guard) but **logs** when it does.
+  - **Rate-limited translation degrades instead of erroring** — it reuses the same path as an LLM
+    failure, so a cook sees untranslated source text, nothing is cached, and it heals itself when
+    the window rolls over.
+- **Prompt-injection bounds.** All AI output is schema-constrained (`generateObject`) and lands in
+  the database as data — it never reaches HTML, SQL, a shell, or an authorization decision, and no
+  prompt contains another tenant's data. Within that threat model the mitigations are targeted at
+  what actually matters, cost and content integrity:
+  - **Glossary corrections are the one user input that reaches a *system* prompt**, so they get the
+    strictest handling in the app: **normalized to a single line on write** (control characters and
+    newlines flattened) so a stored value can't forge its own prompt section, **re-normalized again
+    at render** in case a row predates that rule, and **capped in count** — an unbounded override
+    list would otherwise let one restaurant grow its own system prompt without limit.
+    Normalization rather than rejection is deliberate: a correction can apply to a recipe step or
+    cook note, which are legitimately long and may contain line breaks, so rejecting them would
+    break a working feature to no security benefit.
+  - **User content is explicitly framed as data, not instructions**, and delimited within the prompt.
+  - **Generation size is capped at the model call**, not just at save time, so a crafted input can't
+    run the model to its output limit before validation rejects the result.
+
 ---
 
 *Keep this current. When you ship or change a feature, update the matching section in the same commit.*

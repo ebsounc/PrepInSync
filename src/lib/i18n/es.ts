@@ -424,6 +424,7 @@ export const es: Dict = {
       pasteTooLong: 'Es demasiado largo para procesar. Redúcelo e inténtalo de nuevo.',
       parseFailed: 'No se pudo leer esa receta. Ingrésala manualmente abajo.',
       scanFailed: 'No se pudo leer esa foto. Prueba con una foto más clara o ingrésala manualmente abajo.',
+      rateLimited: 'Demasiados escaneos de recetas por ahora. Inténtalo más tarde o ingrésala manualmente abajo.',
       scanImageInvalid: 'Ese tipo de imagen no es compatible. Usa un JPG o PNG.',
       scanTooLarge: 'Esa imagen es demasiado grande. Prueba con una foto más pequeña.',
       imageInvalid: 'Ese tipo de imagen no es compatible. Usa un JPG o PNG.',
