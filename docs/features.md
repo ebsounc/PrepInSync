@@ -29,16 +29,14 @@ Stack + architecture live in `docs/overview.md` and `docs/database.md`; this is 
 - **Auth is verified server-side on every authenticated route and every mutation** — never trusted
   from the client. Middleware refreshes the Supabase session on each request; layouts enforce the
   redirects.
-- **Signup starts with the language choice**, and picking one re-renders the whole page — including
-  `<html lang>` and the card heading — in that language, so the rest of signup is read in it.
-- **Forms validate in the app, not the browser** (`noValidate` + per-field checks). The browser's own
-  messages are localized to the *browser's* language, not the user's, so a Spanish-speaking cook on an
-  English phone got English errors. Required fields carry a red asterisk (which is why optional ones
-  no longer say "(optional)"), the invalid field gets a red outline via `aria-invalid`, and the message
-  appears under it in the user's language.
-- **A rejected submit keeps what you typed.** Forms dispatch their action manually inside a transition
-  rather than via `<form action>`, because React 19 resets any uncontrolled form whose action is a
-  function the moment it settles — which previously blanked *every* field when one failed.
+- **Forms validate in the app, not the browser (intentional).** The browser's native messages are
+  localized to the *browser's* language rather than the user's — a Spanish-speaking cook on an English
+  phone got English errors — so the auth and invite forms set `noValidate` and validate themselves.
+  Required fields are marked with an asterisk, the offending field turns red, and the message reads in
+  the user's language. A rejected submit also **keeps what you typed**, which needs the action
+  dispatched manually: React 19 resets any uncontrolled form whose `action` is a function.
+- **Signup picks language first**, and choosing one re-renders the page in it, so the rest of signup is
+  read in that language.
 
 ## 2. Roles, ranks & permissions
 
@@ -90,9 +88,6 @@ Stack + architecture live in `docs/overview.md` and `docs/database.md`; this is 
 - **Searchable item list** matching both the **translated (displayed) name and the source-language
   name**, diacritic-insensitive ("jalapeno" finds "jalapeño").
 - **Inline add/edit**; a new item can carry an **inline recipe** created in the same step.
-- **Par level is a removable block** with a one-tap remove and a line explaining the term. Clearing it
-  otherwise meant blanking the quantity *and* clearing the unit separately — doing only one tripped a
-  validation error, which made removing a par level effectively undiscoverable.
 
 ## 5. Units of measure
 
@@ -103,15 +98,12 @@ Stack + architecture live in `docs/overview.md` and `docs/database.md`; this is 
 - **Custom restaurant-defined units** (e.g. "lexan", "6-pan") — added from the item/list forms *or*
   from Settings, saved for reuse, and (because they can't live in the fixed glossary) **translated at
   runtime** via the content-translation cache.
-- **Settings shows one combined Units list** — the 14 built-ins (read-only, in their curated
-  weight → volume → container order) alongside the restaurant's own (deletable), so "what units do we
-  have?" has a single answer. Built-ins stay read-only deliberately: they're a code-level table whose
-  values are stored as free text on existing items, so renaming or deleting one would orphan data.
+- **Settings lists every unit in one place** — built-ins alongside the restaurant's own. Built-ins are
+  **read-only on purpose**: their values are stored as free text on existing items, so renaming or
+  deleting one would orphan data.
 - Units are stored as **free text** on items and entries; writes are validated against the built-in
   set + the restaurant's custom units.
-- A **unit picker** with "add a unit," optional clear, big touch targets. Adding opens a **dialog**
-  (a bottom sheet on phones) rather than expanding inline — the picker sits in a half-width grid cell,
-  so an inline text field wedged between two buttons was unusable one-handed.
+- A **unit picker** with "add a unit," optional clear, big touch targets.
 
 ## 6. Prep lists & the prep workflow
 
@@ -131,11 +123,10 @@ Stack + architecture live in `docs/overview.md` and `docs/database.md`; this is 
 
 **Working a list (all staff):**
 - Everyone sees the **full list**; **starred priority items float to the top**.
-- **Row order is a total order** — starred, then created, then id. The id tie-break matters: entries
-  added in one transaction share a `created_at` (Postgres `now()` is the transaction timestamp), and
-  with every sort key tied, checking an item off rewrote its row and Postgres returned it at a
-  different position, so items appeared to jump around the list at random. Checking off now never
-  moves a row.
+- **Checking an item off never moves it.** Rows sort by starred, then created, then **id** — that last
+  tie-break is load-bearing: entries added in one transaction share a `created_at` (Postgres `now()` is
+  the transaction timestamp), and with every key tied, completing an item rewrote its row and Postgres
+  returned it in a different position.
 - **Tap to complete** — the whole left region of a row is the toggle (a big, greasy-hands target).
   The checkbox flips **optimistically** (instant), then persists.
 - **Completion is attributed** — who + when are recorded, shown as "Done by {name}".
@@ -245,14 +236,13 @@ who don't share a language work off the same list.
 
 ## 12. Settings & account
 
-- **Account card** — your name, your **role**, your email, and sign-out, visible to everyone. Both
-  gaps this closes are real: the app shell only showed your name from `sm:` up (never on a phone), and
-  role labels appeared solely on the management-only Team page, so a line cook could not see their own
-  role anywhere. Sign-out moved here from the header, which frees that space on every screen; the
-  locked-out screen keeps its own sign-out since those users can't reach Settings.
-- **Restaurant settings** put timezone last — it's auto-detected at onboarding and rarely touched, but
-  it can't be removed: it decides which lists count as "today" on the dashboard, which the help text
-  under it now says.
+- **Account card** — your name, **your role**, your email, and sign-out, visible to everyone. Role
+  labels previously appeared only on the management-only Team page, so a cook had no way to see their
+  own. Sign-out lives here rather than the header; the onboarding and locked-out screens keep their
+  own, since neither can reach Settings.
+- **Restaurant settings** — name, when lists are usually built, and timezone. Timezone is auto-detected
+  at onboarding and rarely touched, but it stays editable because it decides which lists count as
+  "today" on the dashboard.
 
 ## 13. Appearance & theming (per-user)
 
@@ -287,7 +277,7 @@ For a cook in a walk-in cooler with no signal:
 
 ## 15. Branding & mobile UX
 
-- **PrepInSync** — Sora typeface, a green accent (user-switchable, §12), light/dark.
+- **PrepInSync** — Sora typeface, a green accent (user-switchable, §13), light/dark.
 - **Logo** — an outline clipboard with a check, drawn as inline SVG so it **recolors to the user's
   accent**; also the browser-tab favicon (fixed brand green).
 - **Mobile-first, greasy-hands UX** — big touch targets (44–56px+), readable on small/cheap screens,
