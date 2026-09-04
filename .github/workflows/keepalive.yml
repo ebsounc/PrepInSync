@@ -1,0 +1,63 @@
+name: Keepalive
+
+# Second, independent daily ping at /api/keepalive, which touches both the Postgres
+# pooler and the Supabase REST API so the free-tier project isn't paused for inactivity
+# (Supabase pauses after ~7 days of low activity).
+#
+# Vercel Cron already does this once a day and is the more reliable of the two -- it
+# never expires. This one exists for a different reason: when the ping fails, GitHub
+# emails you, so you find out the demo is down before a recruiter does.
+#
+# Scheduled 12 hours off the Vercel cron (which runs at 12:00 UTC) so there are two
+# independent chances per day.
+#
+# Deliberately its OWN workflow, not a job inside ci.yml: this one can legitimately go
+# red because an external service is down, and that must never affect the CI badge.
+#
+# Caveat: GitHub disables scheduled workflows after 60 days with no repository
+# activity. Vercel Cron has no such limit, which is why it's the primary.
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the keepalive endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Override with a repository variable if the deployment URL ever changes.
+          KEEPALIVE_URL: ${{ vars.KEEPALIVE_URL || 'https://prepinsync.vercel.app/api/keepalive' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::CRON_SECRET is not set — skipping. Add it under" \
+                 "Settings > Secrets and variables > Actions, matching the value in Vercel."
+            exit 0
+          fi
+
+          # --fail-with-body: non-zero exit on an HTTP error while still writing the
+          # body, so the response (which names the failing ping) stays readable.
+          # Deliberately NOT parsing --write-out '%{http_code}': curl emits it once per
+          # attempt, so with --retry a retried-then-succeeded request yields "000200"
+          # and a naive == 200 check reports a false failure.
+          # Ensure the body file exists even when curl never connects (it writes
+          # nothing on a connection failure), so the cat below can't confuse things.
+          : > response.txt
+
+          if curl --silent --show-error --location --fail-with-body \
+               --max-time 30 --retry 2 --retry-delay 10 \
+               --output response.txt \
+               --header "Authorization: Bearer $CRON_SECRET" \
+               "$KEEPALIVE_URL"; then
+            echo "Keepalive OK:"
+            cat response.txt
+          else
+            echo "Response body (if any):"
+            cat response.txt || true
+            echo "::error::Keepalive ping failed. The Supabase project may be paused," \
+                 "the deployment may be down, or CRON_SECRET may not match Vercel."
+            exit 1
+          fi

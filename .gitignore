@@ -152,5 +152,11 @@ docs/phase-*.md
 # Playwright MCP run artifacts (snapshots/screenshots from local QA)
 .playwright-mcp/
 
+# Playwright E2E run artifacts (traces/screenshots from `npm run e2e`)
+/test-results/
+/playwright-report/
+/blob-report/
+/.last-run.json
+
 # Seeded test-account logins (dev credentials — kept out of the repo)
 docs/test-accounts.md

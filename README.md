@@ -96,6 +96,76 @@ a full-stack app with its own database, that means bringing your own backend —
    Open <http://localhost:3000>. It's mobile-first — try your browser's device emulation, or a phone
    on the same network.
 
+## Tests
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run lint        # eslint
+npm test            # vitest — the unit suite
+```
+
+**The unit suite is hermetic** — no network, no database, no LLM, no real clock. It targets the
+logic that is easy to get quietly wrong and expensive to get wrong in a kitchen:
+
+- **Translation cache** — that a matching source hash is a cache hit, a *changed* source
+  re-translates only the field that changed, a large entity splits into parallel chunks, and an LLM
+  failure or an exhausted rate limit falls back to source text while persisting **nothing** (so it
+  retries on the next render instead of caching a bad result).
+- **Rate limiter** — window flooring so concurrent serverless instances contend on one row, the
+  allow/reject boundary, and fail-open-but-log when the database is unreachable.
+- **Prompt-injection bounds** — glossary overrides are the one user input that reaches a *system*
+  prompt, so the tests pin newline/control-character flattening, the length cap and the count cap.
+- **CSS-injection guard** — the accent color is server-rendered into a `style` attribute, so only
+  known presets and plain `#rrggbb` are accepted; breakout attempts are rejected.
+- **Offline queue** — repeated taps coalesce to one replay, each intent stays bound to the cook who
+  made it, the real offline check-off time survives, and corrupt storage degrades to an empty queue.
+- Plus units/pluralization, image validation, i18n resolution, roles and permissions, recipe payload
+  parsing, and **en/es dictionary parity** (identical key sets, matching `{token}`s, and no Spanish
+  string left byte-identical to its English source).
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs typecheck, lint and the unit suite
+on every push and PR — then runs the suite twice more under `TZ=Pacific/Niue` and
+`TZ=Pacific/Kiritimati`, because the date helpers promise a rendered day that never shifts with the
+host's timezone and the runner's UTC clock would make that pass by accident.
+
+### End-to-end (local only)
+
+```bash
+npm run e2e         # playwright test  (add --headed or --ui to watch)
+```
+
+One browser pass at phone size over the real app: sign in → create the restaurant → add a prep item
+→ build a list → check it off → flip the whole interface to Spanish and back. It asserts only on
+static dictionary strings, never on LLM output, so it can't flake on model drift. Setup creates a
+pre-confirmed account through the service-role admin API (signup itself requires email
+confirmation), and teardown deletes it and its restaurant.
+
+It needs your `.env.local` and a live Supabase project, so it is **deliberately not in CI**: there it
+would need production secrets, spend API credit per run, and go red whenever the free-tier database
+pauses. A red badge for reasons unrelated to the code is worse than no badge.
+
+## Keeping the demo awake
+
+Supabase pauses a Free-plan project after about **7 days of low activity**, which would
+take the hosted demo offline until someone resumed it by hand. `GET /api/keepalive`
+prevents that: it runs a `select 1` over the Postgres pooler **and** a row-free count
+through the Supabase REST API, because Supabase documents "API calls to your project" as
+qualifying activity but doesn't say whether a direct pooler connection counts on its own.
+It returns `503` if either path fails, so a problem is loud rather than silent.
+
+It's called daily from two places, on purpose:
+
+| | Schedule | Why |
+|---|---|---|
+| [`vercel.json`](vercel.json) cron | 12:00 UTC | Primary. Runs on the same infra as the app and never expires. |
+| [`keepalive.yml`](.github/workflows/keepalive.yml) | 00:00 UTC | Independent, and **emails on failure** — so you learn the demo is down before a visitor does. |
+
+**Setup:** put the same random value in `CRON_SECRET` as a Vercel environment variable
+(Vercel Cron sends it automatically as `Authorization: Bearer …`) and as a GitHub Actions
+secret. Without it the route rejects everything and the workflow skips itself rather than
+emailing every day. Note that GitHub disables scheduled workflows after 60 days with no
+commits, which is why the Vercel cron is the primary.
+
 ## Docs
 
 - **[docs/features.md](docs/features.md)** — full feature catalog + the intentional choices behind it
