@@ -36,6 +36,44 @@ memory). Add it to `schema.ts` and regenerate.
 
 ---
 
+## Connecting (which pooler, and why it matters)
+
+Supabase exposes three ways in, and the choice is **not** interchangeable:
+
+| Host | Port | Use it for |
+|---|---|---|
+| `db.<ref>.supabase.co` (direct) | 5432 | Nothing here — it is IPv6-only and unreachable on many IPv4 networks. |
+| `...pooler.supabase.com` (session mode) | 5432 | Local dev, migrations, one-off scripts. |
+| `...pooler.supabase.com` (transaction mode) | 6543 | **Production / serverless.** |
+
+**Production must use the transaction pooler (`:6543`).** This was learned the hard
+way: production ran on the session pooler with `max: 5` per client and started
+returning `Application error: a server-side exception has occurred` under ordinary
+concurrent traffic. The cause was:
+
+```
+(EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 15
+```
+
+Session mode assigns each client its own backend connection for the life of that
+connection, so the cap is a hard ceiling. Vercel scales out horizontally, and every
+instance opened its own pool of 5 — meaning about **three warm instances exhausted the
+whole database** and every page 500'd. It never showed up in single-user testing,
+because one person clicking around never produces three concurrent instances.
+
+Two settings in [`src/lib/db/index.ts`](../src/lib/db/index.ts) follow from this:
+
+- **`max: 1` when `process.env.VERCEL` is set.** On serverless the scarce resource is
+  pooler slots shared *across* instances, not connections *within* one, so N instances
+  should cost N connections rather than 5N.
+- **`prepare: false`, unconditionally.** Transaction-mode pooling multiplexes one
+  backend connection across many clients, so a named prepared statement can't be
+  relied on to still exist. It is set for both poolers rather than only in production,
+  because a dev/prod difference here is precisely how you ship a bug that only appears
+  in prod.
+
+After the switch, 60 concurrent signed-in page renders returned 200 with no errors.
+
 ## Migration workflow
 
 There is **no `__drizzle_migrations` tracking table** — `drizzle-kit migrate` is
