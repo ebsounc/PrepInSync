@@ -7,6 +7,9 @@ exists. **Rule going forward: a feature isn't done until it's listed here**, upd
 same commit as the feature.
 
 Scope: **shipped, live features only** (no roadmap / v2). Written 2026-07-14.
+Sections 1–17 are things a user can see or do. **§18 is not user-facing** — it's the
+engineering and operational work that keeps the rest honest, listed here because the
+same rule applies: if it shipped, it's written down.
 Product = a mobile-first, bilingual (English ↔ Spanish) back-of-house kitchen prep tool.
 Stack + architecture live in `docs/overview.md` and `docs/database.md`; this is the *what*.
 
@@ -332,6 +335,98 @@ printed in the README, so the LLM surface is treated as an abuse target rather t
   - **User content is explicitly framed as data, not instructions**, and delimited within the prompt.
   - **Generation size is capped at the model call**, not just at save time, so a crafted input can't
     run the model to its output limit before validation rejects the result.
+
+## 18. Engineering support (NOT user-facing)
+
+Nothing in this section is visible in the app. It's here because it shipped and the rule
+above applies to it too.
+
+### Test suite
+
+- **176 tests across 14 files**, run with `npm test` (Vitest), finishing in well under a
+  second. **Hermetic by design** — no network, no database, no LLM, no real clock — so the
+  only thing that can turn them red is a change to the behaviour they describe.
+- Two dependencies only (`vitest`, `@playwright/test`). No `dotenv` (Node's
+  `process.loadEnvFile`), no `jsdom` (a small hand-rolled `localStorage` stub), no
+  `vite-tsconfig-paths` (the `@/*` alias is declared directly in the config).
+- `server-only` is aliased to an empty stub under Vitest — its real export is a bare
+  `throw`, so without that every server module would fail at import.
+- **What's covered is chosen, not incidental** — the logic that is easy to get quietly
+  wrong and expensive to get wrong in a kitchen:
+  - **Translation cache (§9)** — a matching source hash is a hit; a *changed* source
+    re-translates only the field that changed; 25 fields split into 3 parallel chunks; an
+    LLM failure or an exhausted rate limit falls back to source text and persists
+    **nothing**, so it retries rather than caching a bad result; one failing chunk doesn't
+    take the other two with it.
+  - **Rate limiter (§17)** — window flooring so concurrent instances contend on one row,
+    the allow/reject boundary at exactly the limit, and fail-open-**but-log** when the
+    database is unreachable.
+  - **Prompt-injection bounds (§17)** — newline and control-character flattening, the
+    length cap, and the count cap on glossary overrides.
+  - **CSS-injection guard (§13)** — only known presets and plain `#rrggbb` accepted;
+    arbitrary `oklch()` and style-attribute breakouts rejected.
+  - **Offline queue (§14)** — repeated taps coalesce to one replay, each intent stays bound
+    to the cook who made it, the real check-off time survives, and corrupt storage degrades
+    to an empty queue instead of throwing.
+  - Plus units and pluralization, image validation, i18n key resolution, roles and
+    permissions, recipe payload parsing, and **en/es dictionary parity** (identical key
+    sets, matching `{token}`s, and no Spanish string left byte-identical to its English
+    source, with an explicit allow-list for the ones that legitimately match).
+
+### CI
+
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs typecheck, lint and the
+  unit suite on every push and PR. No secrets, no services, no network — it cannot go red
+  for reasons unrelated to the code.
+- It then runs the suite **twice more** under `TZ=Pacific/Niue` (UTC−11) and
+  `TZ=Pacific/Kiritimati` (UTC+14). The date helpers promise a rendered day that never
+  shifts with the host's timezone, and the runner's UTC clock makes that pass by accident.
+  The two zones catch **different** regressions and neither catches both: UTC−11 catches a
+  dropped `timeZone: 'UTC'` on the formatter, UTC+14 catches a parse that loses its `Z`.
+  (`TZ` is ignored on Windows, so the Linux runner is the only place this is enforced.)
+
+### End-to-end (local only, deliberately not in CI)
+
+- One Playwright pass at phone width over the deterministic core: sign in → create the
+  restaurant → add a prep item → build a list → work it → flip the whole interface to
+  Spanish and back. Asserts only on **static dictionary strings, never LLM output**, so it
+  can't flake on model drift.
+- Setup creates a pre-confirmed account through the **service-role admin API**, because
+  signup itself requires email confirmation and a browser can't complete that; teardown
+  deletes the account and its restaurant.
+- **Kept out of CI on purpose:** there it would need production secrets, spend API credit
+  per run, collide with the demo's reset-on-sign-in behaviour, hit the app's own demo scan
+  quota after a few pushes, and go red whenever the free-tier database paused. A badge that
+  is red for reasons unrelated to the code is worse than no badge.
+
+### Keeping the hosted demo alive
+
+- `GET /api/keepalive` runs a `select 1` over the pooler **and** a row-free count through
+  the REST API, because Supabase documents "API calls to your project" as qualifying
+  activity but doesn't say whether a pooler connection counts on its own. Returns `503` if
+  either path fails, so a problem is loud rather than silent, and `no-store` since it varies
+  by `Authorization`.
+- Called daily from two places: the [`vercel.json`](../vercel.json) cron (primary — same
+  infra as the app, never expires) and
+  [`keepalive.yml`](../.github/workflows/keepalive.yml) 12 hours later (independent, and
+  **emails on failure**). Auth is checked before touching the database, so an
+  unauthenticated flood costs a 401 and nothing else.
+- Without this, Supabase pauses a Free project after ~7 days of low activity and the demo
+  goes offline until someone resumes it by hand.
+
+### Serverless database connections
+
+- **Production must use the transaction pooler (`:6543`), not session mode.** Session mode
+  gives each client its own backend connection against a hard 15-connection cap; with a
+  pool of 5 per instance, about **three warm Vercel instances exhausted the database** and
+  every page returned a server-side exception. It never appeared in single-user testing,
+  because one person clicking around never produces three concurrent instances.
+- `max: 1` on serverless (the scarce resource is pooler slots shared *across* instances)
+  and `prepare: false` unconditionally (transaction-mode pooling multiplexes one backend
+  connection, so named prepared statements can't be relied on — and a dev/prod difference
+  here is how you ship a bug that only shows up in prod).
+- Verified at **60 concurrent signed-in page renders**, all 200, no errors. Full write-up in
+  [`docs/database.md`](database.md).
 
 ---
 
