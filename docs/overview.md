@@ -1,6 +1,6 @@
 # Kitchen prep app — overview
 
-Internal reference for Elijah + Clark. Working doc.
+Internal reference. Working doc.
 
 ---
 

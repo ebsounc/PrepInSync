@@ -56,7 +56,14 @@ export async function GET(request: Request) {
   const ok = results.db === 'ok' && results.api === 'ok'
   // Non-200 on any failure so the GitHub Actions ping goes red and emails, rather than
   // reporting success while the project quietly drifts toward a pause.
+  //
+  // no-store because the response varies by Authorization header. Next's default for a
+  // dynamic route is `public, max-age=0, must-revalidate`, which doesn't actually get
+  // reused (and never did here — X-Vercel-Cache was MISS every time), but `public` on an
+  // auth-gated endpoint invites a shared cache to hold it. Being explicit also means a
+  // cached 200 can never mask a project that has actually stopped responding.
   return NextResponse.json({ ok, ...results, at: new Date().toISOString() }, {
     status: ok ? 200 : 503,
+    headers: { 'Cache-Control': 'no-store' },
   })
 }

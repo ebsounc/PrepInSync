@@ -160,3 +160,9 @@ docs/phase-*.md
 
 # Seeded test-account logins (dev credentials — kept out of the repo)
 docs/test-accounts.md
+
+# Vercel CLI link metadata (project/org ids, and the OIDC token `vercel link` pulls).
+# Added by `vercel link`, which also appended a broad `.env*` rule — removed, because
+# it sat AFTER the `!.env.example` negation above and so re-ignored the one env file
+# that SHOULD be tracked. Lines 69-71 already cover real env files correctly.
+.vercel
