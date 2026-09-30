@@ -286,7 +286,7 @@ export const en = {
     linkExpired: 'That link has expired. Please sign in or request a new one.',
     linkInvalid: 'That link is invalid. Please sign in or request a new one.',
     sessionExpired: 'Your session expired. Please sign in again.',
-    tryDemo: 'Try the demo — no sign-up',
+    tryDemo: 'Try the demo, no sign-up needed',
     tryDemoHint: 'Explore a sample steakhouse kitchen. It resets for every visitor.',
     orSignIn: 'or sign in',
   },

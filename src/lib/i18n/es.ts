@@ -283,7 +283,7 @@ export const es: Dict = {
     linkExpired: 'Ese enlace ha expirado. Inicia sesión o solicita uno nuevo.',
     linkInvalid: 'Ese enlace no es válido. Inicia sesión o solicita uno nuevo.',
     sessionExpired: 'Tu sesión expiró. Inicia sesión de nuevo.',
-    tryDemo: 'Probar la demo — sin registrarse',
+    tryDemo: 'Probar la demo, sin registrarse',
     tryDemoHint: 'Explora la cocina de un asador de ejemplo. Se reinicia para cada visitante.',
     orSignIn: 'o inicia sesión',
   },
