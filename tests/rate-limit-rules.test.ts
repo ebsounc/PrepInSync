@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { recipeAiRules, translationRule } from '@/lib/rate-limits'
+import {
+  recipeAiRules,
+  translationRules,
+  demoLoginRule,
+  demoResetRule,
+  uploadRules,
+} from '@/lib/rate-limits'
 import { DEMO_RESTAURANT_ID, isDemoRestaurant } from '@/lib/demo'
 
 const RESTAURANT = '11111111-1111-4111-8111-111111111111'
 const USER = '22222222-2222-4222-8222-222222222222'
 const HOUR_MS = 60 * 60 * 1000
+const DAY_MS = 24 * HOUR_MS
 
 describe('isDemoRestaurant', () => {
   it('matches only the seeded demo id', () => {
@@ -35,12 +42,13 @@ describe('recipeAiRules', () => {
     expect(perRestaurant.limit).toBeGreaterThan(perUser.limit)
   })
 
-  it('replaces both rules with one much tighter rule for the public demo', () => {
-    // The demo password is printed in the README, so it is the one account whose
-    // credentials every visitor already has.
+  it('replaces both rules with much tighter hourly + daily rules for the public demo', () => {
+    // Anyone can enter the demo with one click, so it is the cheapest account to abuse.
     const rules = recipeAiRules(DEMO_RESTAURANT_ID, USER)
-    expect(rules).toHaveLength(1)
-    expect(rules[0].key).toBe(`recipe-ai:demo:${DEMO_RESTAURANT_ID}`)
+    expect(rules.map((r) => r.key)).toEqual([
+      `recipe-ai:demo:${DEMO_RESTAURANT_ID}`,
+      `recipe-ai:demo-daily:${DEMO_RESTAURANT_ID}`,
+    ])
 
     const realPerUser = recipeAiRules(RESTAURANT, USER).find((r) =>
       r.key.startsWith('recipe-ai:user:')
@@ -48,44 +56,88 @@ describe('recipeAiRules', () => {
     expect(rules[0].limit).toBeLessThan(realPerUser.limit)
   })
 
-  it('does not key the demo bucket by user, so visitors share one quota', () => {
+  it('does not key the demo buckets by user, so visitors share one quota', () => {
     const a = recipeAiRules(DEMO_RESTAURANT_ID, 'user-a')
     const b = recipeAiRules(DEMO_RESTAURANT_ID, 'user-b')
-    expect(a[0].key).toBe(b[0].key)
+    expect(a.map((r) => r.key)).toEqual(b.map((r) => r.key))
   })
 
   it('keeps the demo quota non-zero so a visitor can still try the flagship scan', () => {
-    expect(recipeAiRules(DEMO_RESTAURANT_ID, USER)[0].limit).toBeGreaterThan(0)
+    for (const rule of recipeAiRules(DEMO_RESTAURANT_ID, USER)) expect(rule.limit).toBeGreaterThan(0)
   })
 
-  it('uses an hourly window', () => {
+  it('caps the demo per day, not just per hour', () => {
+    // An hourly cap alone lets a patient script spend 24x it every day.
+    const [hourly, daily] = recipeAiRules(DEMO_RESTAURANT_ID, USER)
+    expect(hourly.windowMs).toBe(HOUR_MS)
+    expect(daily.windowMs).toBe(DAY_MS)
+    expect(daily.limit).toBeLessThan(hourly.limit * 24)
+  })
+
+  it('uses an hourly window for real restaurants', () => {
     for (const rule of recipeAiRules(RESTAURANT, USER)) expect(rule.windowMs).toBe(HOUR_MS)
-    expect(recipeAiRules(DEMO_RESTAURANT_ID, USER)[0].windowMs).toBe(HOUR_MS)
   })
 })
 
-describe('translationRule', () => {
+describe('translationRules', () => {
   it('is keyed per restaurant, not per user', () => {
     // Translation happens during render on a cache miss, not from a deliberate user
     // action, so attributing it to whoever loaded the page first would be arbitrary.
-    const rule = translationRule(RESTAURANT)
-    expect(rule.key).toBe(`translate:restaurant:${RESTAURANT}`)
-    expect(rule.windowMs).toBe(HOUR_MS)
+    const rules = translationRules(RESTAURANT)
+    expect(rules).toHaveLength(1)
+    expect(rules[0].key).toBe(`translate:restaurant:${RESTAURANT}`)
+    expect(rules[0].windowMs).toBe(HOUR_MS)
   })
 
-  it('gives the demo a lower ceiling than a real restaurant', () => {
-    expect(translationRule(DEMO_RESTAURANT_ID).limit).toBeLessThan(
-      translationRule(RESTAURANT).limit
-    )
-    expect(translationRule(DEMO_RESTAURANT_ID).limit).toBeGreaterThan(0)
+  it('gives the demo a lower hourly ceiling than a real restaurant', () => {
+    const [demoHourly] = translationRules(DEMO_RESTAURANT_ID)
+    expect(demoHourly.limit).toBeLessThan(translationRules(RESTAURANT)[0].limit)
+    expect(demoHourly.limit).toBeGreaterThan(0)
+  })
+
+  it('caps the demo per day, below 24 hours of its hourly quota', () => {
+    const [hourly, daily] = translationRules(DEMO_RESTAURANT_ID)
+    expect(daily.windowMs).toBe(DAY_MS)
+    expect(daily.limit).toBeLessThan(hourly.limit * 24)
   })
 
   it('is generous enough for a real kitchen not to notice it', () => {
     // A cold-cache dashboard is a handful of calls; everything after is cache reads.
-    expect(translationRule(RESTAURANT).limit).toBeGreaterThanOrEqual(100)
+    expect(translationRules(RESTAURANT)[0].limit).toBeGreaterThanOrEqual(100)
   })
 
   it('separates buckets across restaurants', () => {
-    expect(translationRule(RESTAURANT).key).not.toBe(translationRule('other-id').key)
+    expect(translationRules(RESTAURANT)[0].key).not.toBe(translationRules('other-id')[0].key)
+  })
+})
+
+describe('demoLoginRule', () => {
+  it('is keyed per IP with an hourly window', () => {
+    // A shared per-demo bucket would let one looping script lock every visitor out.
+    expect(demoLoginRule('203.0.113.7').key).not.toBe(demoLoginRule('203.0.113.8').key)
+    expect(demoLoginRule('203.0.113.7').windowMs).toBe(HOUR_MS)
+    expect(demoLoginRule('203.0.113.7').limit).toBeGreaterThan(1)
+  })
+})
+
+describe('demoResetRule', () => {
+  it('is one global bucket that allows more resets than a single IP can trigger', () => {
+    // Backstop for a script rotating IPs past the per-IP login limit.
+    expect(demoResetRule().key).toBe('demo-reset:global')
+    expect(demoResetRule().windowMs).toBe(HOUR_MS)
+    expect(demoResetRule().limit).toBeGreaterThan(demoLoginRule('203.0.113.7').limit)
+  })
+})
+
+describe('uploadRules', () => {
+  it('leaves real restaurants unmetered', () => {
+    expect(uploadRules(RESTAURANT)).toEqual([])
+  })
+
+  it('caps demo uploads per day', () => {
+    const rules = uploadRules(DEMO_RESTAURANT_ID)
+    expect(rules).toHaveLength(1)
+    expect(rules[0].windowMs).toBe(DAY_MS)
+    expect(rules[0].limit).toBeGreaterThan(0)
   })
 })

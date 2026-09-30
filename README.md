@@ -8,12 +8,8 @@ so back-of-house staff who don't share a language can still work off the same li
 
 ## ▶︎ See it live — [prepinsync.vercel.app](https://prepinsync.vercel.app)
 
-Nothing to install — open the link and sign in:
-
-| | |
-|---|---|
-| **Email** | `demo@prepinsync.app` |
-| **Password** | `DemoKitchen1!` |
+Nothing to install and no account needed — open the link and click **Try the demo** at the top
+of the sign-in screen.
 
 ### One list, two cooks
 
@@ -30,10 +26,12 @@ put, because that's what a cook actually calls them.
 
 You land in **Demo Kitchen** — a steakhouse with real prep lists, recipes, cover photos, and a full
 roster of staff across every role. Browse the lists and recipes, **flip the whole app between English
-and Spanish** (in Settings, or sign in as one of the Spanish-speaking cooks), check items off, and
-leave notes. It's a shared sandbox restaurant, isolated from any real data and **reset every time
-someone signs in** — so anything you touch is wiped clean for the next visitor, and team management
-(invites, role changes) is turned off.
+and Spanish** (in Settings), check items off, and leave notes. It's a shared sandbox restaurant,
+isolated from any real data and **reset every time someone clicks Try the demo** — so you always
+start clean, and anything you touch is wiped for the next visitor. Team management (invites, role
+changes) is turned off, and the AI features — translation and recipe paste/photo scan — run on
+small shared hourly and daily quotas, so the demo can't be used to burn API credit. If a quota is
+used up, translated text falls back to the original until it resets.
 
 Want your own? **Create your own kitchen** from the login screen spins up a fresh, private restaurant.
 

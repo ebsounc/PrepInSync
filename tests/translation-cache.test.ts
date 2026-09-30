@@ -14,7 +14,7 @@ const db = {
 
 const translateBatch = vi.fn()
 const getGlossaryOverrides = vi.fn()
-const consumeRateLimit = vi.fn()
+const consumeRateLimits = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   db,
@@ -32,7 +32,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/ai', () => ({ translateBatch }))
 vi.mock('@/lib/db/queries/glossary', () => ({ getGlossaryOverrides }))
-vi.mock('@/lib/db/queries/rate-limit', () => ({ consumeRateLimit }))
+vi.mock('@/lib/db/queries/rate-limit', () => ({ consumeRateLimits }))
 
 vi.mock('drizzle-orm', () => ({
   and: (...args: unknown[]) => ({ op: 'and', args }),
@@ -77,7 +77,7 @@ beforeEach(() => {
   insertChain.values.mockReturnValue(insertChain)
   insertChain.onConflictDoUpdate.mockResolvedValue(undefined)
   getGlossaryOverrides.mockResolvedValue([])
-  consumeRateLimit.mockResolvedValue({ allowed: true, retryAfterMs: 0 })
+  consumeRateLimits.mockResolvedValue({ allowed: true, retryAfterMs: 0 })
   translateBatch.mockImplementation(
     async ({ items }: { items: { id: string; text: string }[] }) =>
       new Map(items.map((i) => [i.id, `ES:${i.text}`]))
@@ -257,7 +257,7 @@ describe('batching and chunking', () => {
       field({ entityId: 'recipe-1', field: `step:${i}:text`, sourceText: `Step ${i}` })
     )
     await getTranslations(fields, RESTAURANT, 'es')
-    expect(consumeRateLimit).toHaveBeenCalledTimes(3)
+    expect(consumeRateLimits).toHaveBeenCalledTimes(3)
   })
 
   it('groups by source language so mixed-language content stays correct', async () => {
@@ -302,7 +302,7 @@ describe('graceful degradation', () => {
     // Rate-limited translation reuses the LLM-failure path on purpose: untranslated
     // text rather than an error, nothing cached, and it recovers when the window rolls.
     seedCache([])
-    consumeRateLimit.mockResolvedValue({ allowed: false, retryAfterMs: 60_000 })
+    consumeRateLimits.mockResolvedValue({ allowed: false, retryAfterMs: 60_000 })
 
     const result = await getTranslations([field()], RESTAURANT, 'es')
 

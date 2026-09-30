@@ -305,21 +305,30 @@ For a cook in a walk-in cooler with no signal:
 
 ## 17. Protecting the AI layer (cost & prompt integrity)
 
-The app holds an Anthropic API key and exposes AI features to a public demo whose password is
-printed in the README, so the LLM surface is treated as an abuse target rather than a trusted one.
+The app holds an Anthropic API key and exposes AI features to a public demo that anyone can enter
+with one click, so the LLM surface is treated as an abuse target rather than a trusted one.
 
 - **Rate limiting on every paid endpoint**, backed by **Postgres**, not process memory —
   serverless instances scale out and cold-start, so an in-memory counter would silently reset.
   Recipe paste/scan is bounded **per user and per restaurant**; translation is bounded per
   restaurant. Counting is a fixed window incremented by a **single atomic statement**, so
   concurrent instances can't lose a count to a read-then-write race.
-  - **The public demo gets its own much tighter quota** — it's the one account whose credentials
-    everyone already has. Limits stay non-zero so a visitor can still try the flagship scan.
+  - **The public demo gets its own much tighter quota**, with a **daily ceiling on top of the
+    hourly one** — it's the one account every visitor can reach, and an hourly cap alone still
+    lets a patient script spend 24× it each day. Limits stay non-zero so a visitor can still try
+    the flagship scan.
   - **The limiter fails open** on a database error (a limiter outage means the DB is down, and
     blocking every chef is worse than briefly losing a cost guard) but **logs** when it does.
   - **Rate-limited translation degrades instead of erroring** — it reuses the same path as an LLM
     failure, so a cook sees untranslated source text, nothing is cached, and it heals itself when
     the window rolls over.
+- **The demo is entered by a button, not a published password.** *Try the demo* on the sign-in
+  screen signs into the shared account server-side with a one-time, admin-generated link (rate
+  limited per IP). The account's password is random and never shared, so there's no credential to
+  script against, and a visitor who changes it can't lock anyone else out. Every click reseeds the
+  kitchen *and* restores what Settings could change (restaurant name/timezone, the demo user's
+  language and theme). Demo photo uploads have a daily cap, and Storage grants the browser no write
+  policies at all — every upload goes through the server's checks.
 - **Prompt-injection bounds.** All AI output is schema-constrained (`generateObject`) and lands in
   the database as data — it never reaches HTML, SQL, a shell, or an authorization decision, and no
   prompt contains another tenant's data. Within that threat model the mitigations are targeted at

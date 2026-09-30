@@ -286,6 +286,9 @@ export const en = {
     linkExpired: 'That link has expired. Please sign in or request a new one.',
     linkInvalid: 'That link is invalid. Please sign in or request a new one.',
     sessionExpired: 'Your session expired. Please sign in again.',
+    tryDemo: 'Try the demo — no sign-up',
+    tryDemoHint: 'Explore a sample steakhouse kitchen. It resets for every visitor.',
+    orSignIn: 'or sign in',
   },
   unitSelect: {
     placeholder: 'Unit',
@@ -356,6 +359,9 @@ export const en = {
       signupFailed: 'Could not create your account. Please try again.',
       invalidCredentials: 'Invalid email or password.',
       resetFailed: 'Could not update password. Your link may have expired.',
+      demoRateLimited: 'Too many demo sign-ins from your network. Please try again in a little while.',
+      demoUnavailable: 'The demo is unavailable right now. Please try again shortly.',
+      demoPasswordLocked: 'The demo account’s password can’t be changed.',
     },
     items: {
       noPermission: 'You do not have permission to manage items.',
@@ -370,6 +376,7 @@ export const en = {
       imageInvalid: 'That image type isn’t supported. Use a JPG or PNG.',
       imageTooLarge: 'That image is too large. Try a smaller photo.',
       imageUploadFailed: 'Couldn’t upload that photo. Please try again.',
+      imageRateLimited: 'The demo has hit its photo upload limit for today.',
     },
     prepLists: {
       noPermission: 'You do not have permission to edit prep lists.',
@@ -450,6 +457,7 @@ export const en = {
       imageInvalid: 'That image type isn’t supported. Use a JPG or PNG.',
       imageTooLarge: 'That image is too large. Try a smaller photo.',
       imageUploadFailed: 'Couldn’t upload that photo. Please try again.',
+      imageRateLimited: 'The demo has hit its photo upload limit for today.',
     },
   },
 }

@@ -3,7 +3,7 @@
 import { startTransition, useState, useActionState } from 'react'
 import Link from 'next/link'
 import { EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react'
-import { loginAction } from '@/app/(auth)/actions'
+import { demoLoginAction, loginAction } from '@/app/(auth)/actions'
 import { useT } from '@/lib/i18n/client'
 import { collectErrors, emailError, requiredError, type FieldErrors } from '@/lib/form-validation'
 import { Field, FieldLabel, FieldMessage } from '@/components/ui/field'
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 export function LoginForm() {
   const { dict } = useT()
   const [state, action, isPending] = useActionState(loginAction, null)
+  const [demoState, demoAction, isDemoPending] = useActionState(demoLoginAction, null)
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
 
@@ -47,66 +48,90 @@ export function LoginForm() {
     })
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-      {state?.error && (
-        <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
-          {state.error}
-        </div>
-      )}
-      <Field name="email">
-        <FieldLabel required>{dict.auth.email}</FieldLabel>
-        <Input
-          type="email"
-          name="email"
-          required
-          aria-invalid={Boolean(errors.email)}
-          onInput={() => clearError('email')}
-          placeholder={dict.auth.emailPlaceholder}
-          autoComplete="email"
-          autoFocus
-        />
-        {errors.email && <FieldMessage>{errors.email}</FieldMessage>}
-      </Field>
-      <Field name="password">
-        <FieldLabel required>{dict.auth.password}</FieldLabel>
-        <div className="relative">
-          <Input
-            type={showPassword ? 'text' : 'password'}
-            name="password"
-            required
-            aria-invalid={Boolean(errors.password)}
-            onInput={() => clearError('password')}
-            placeholder={dict.auth.passwordPlaceholder}
-            autoComplete="current-password"
-            className="pr-10"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
-            tabIndex={-1}
-            aria-label={showPassword ? dict.auth.hidePassword : dict.auth.showPassword}
-          >
-            {/* Open eye = the password is currently visible. */}
-            {showPassword ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4" />}
-          </button>
-        </div>
-        {errors.password && <FieldMessage>{errors.password}</FieldMessage>}
-      </Field>
-      <div className="flex justify-end">
-        <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-          {dict.auth.forgotLink}
-        </Link>
+    <>
+      {/* First thing on the page: most visitors arrive from a portfolio link and just
+          want to look around, without an account. */}
+      <form action={demoAction} className="mb-5 flex flex-col gap-2">
+        {demoState?.error && (
+          <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            {demoState.error}
+          </div>
+        )}
+        <Button type="submit" className="w-full min-h-[52px] text-base" disabled={isDemoPending || isPending}>
+          {isDemoPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.auth.tryDemo}
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">{dict.auth.tryDemoHint}</p>
+      </form>
+      <div className="mb-5 flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="h-px flex-1 bg-border" />
+        {dict.auth.orSignIn}
+        <div className="h-px flex-1 bg-border" />
       </div>
-      <Button type="submit" className="w-full min-h-[52px] text-base" disabled={isPending}>
-        {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.auth.signIn}
-      </Button>
-      <p className="text-center text-sm text-muted-foreground">
-        {dict.auth.noAccount}{' '}
-        <Link href="/signup" className="text-primary hover:underline">
-          {dict.auth.signUp}
-        </Link>
-      </p>
-    </form>
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+        {state?.error && (
+          <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+            {state.error}
+          </div>
+        )}
+        <Field name="email">
+          <FieldLabel required>{dict.auth.email}</FieldLabel>
+          <Input
+            type="email"
+            name="email"
+            required
+            aria-invalid={Boolean(errors.email)}
+            onInput={() => clearError('email')}
+            placeholder={dict.auth.emailPlaceholder}
+            autoComplete="email"
+          />
+          {errors.email && <FieldMessage>{errors.email}</FieldMessage>}
+        </Field>
+        <Field name="password">
+          <FieldLabel required>{dict.auth.password}</FieldLabel>
+          <div className="relative">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              required
+              aria-invalid={Boolean(errors.password)}
+              onInput={() => clearError('password')}
+              placeholder={dict.auth.passwordPlaceholder}
+              autoComplete="current-password"
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+              tabIndex={-1}
+              aria-label={showPassword ? dict.auth.hidePassword : dict.auth.showPassword}
+            >
+              {/* Open eye = the password is currently visible. */}
+              {showPassword ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4" />}
+            </button>
+          </div>
+          {errors.password && <FieldMessage>{errors.password}</FieldMessage>}
+        </Field>
+        <div className="flex justify-end">
+          <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+            {dict.auth.forgotLink}
+          </Link>
+        </div>
+        <Button
+          type="submit"
+          variant="outline"
+          className="w-full min-h-[52px] text-base"
+          disabled={isPending || isDemoPending}
+        >
+          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : dict.auth.signIn}
+        </Button>
+        <p className="text-center text-sm text-muted-foreground">
+          {dict.auth.noAccount}{' '}
+          <Link href="/signup" className="text-primary hover:underline">
+            {dict.auth.signUp}
+          </Link>
+        </p>
+      </form>
+    </>
   )
 }

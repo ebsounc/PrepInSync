@@ -57,6 +57,19 @@ export async function deleteImage(path: string): Promise<void> {
   if (error) throw error
 }
 
+// Removes `{folder}/{entityId}/{fileName}` for every entity folder under `folder`
+// (one list + one remove). Used by the demo reset, whose DB wipe drops the rows but
+// not their thumbnails/covers. Throws on failure; the caller decides whether to care.
+export async function deleteEntityFiles(folder: string, fileName: string): Promise<void> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.storage.from(BUCKET).list(folder, { limit: 1000 })
+  if (error) throw error
+  if (!data || data.length === 0) return
+  const paths = data.map((entry) => `${folder}/${entry.name}/${fileName}`)
+  const { error: removeError } = await supabase.storage.from(BUCKET).remove(paths)
+  if (removeError) throw removeError
+}
+
 // Removes every object directly under a folder (one level — our entity folders hold
 // a single file). Used on entity delete. Best-effort: callers swallow errors so a
 // storage hiccup never blocks the DB delete.

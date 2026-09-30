@@ -15,7 +15,7 @@ import {
 } from '@/lib/db/queries/recipes'
 import { parseRecipe, scanRecipe, type ParsedRecipe } from '@/lib/ai'
 import { consumeRateLimits } from '@/lib/db/queries/rate-limit'
-import { recipeAiRules } from '@/lib/rate-limits'
+import { recipeAiRules, uploadRules } from '@/lib/rate-limits'
 import { parseRecipeJson, type ParsedRecipePayload } from '@/lib/recipes/payload'
 import { uploadImage, deleteImage, deletePrefix, recipeCoverPath } from '@/lib/storage'
 import { decodeImageInput } from '@/lib/images/validate'
@@ -240,6 +240,10 @@ export async function setRecipeImageAction(
           : ctx.dict.errors.recipes.imageInvalid,
     }
   }
+
+  // Demo-only daily cap (no-op elsewhere) — see uploadRules.
+  const limit = await consumeRateLimits(uploadRules(ctx.restaurantId))
+  if (!limit.allowed) return { error: ctx.dict.errors.recipes.imageRateLimited }
 
   const path = recipeCoverPath(ctx.restaurantId, id.data)
   try {

@@ -15,6 +15,8 @@ import {
 import { createRecipe, getRecipeByItemId } from '@/lib/db/queries/recipes'
 import { isValidUnit } from '@/lib/db/queries/restaurant-units'
 import { uploadImage, deleteImage, deletePrefix, itemThumbPath } from '@/lib/storage'
+import { consumeRateLimits } from '@/lib/db/queries/rate-limit'
+import { uploadRules } from '@/lib/rate-limits'
 import { decodeImageInput } from '@/lib/images/validate'
 import { parseRecipeJson, recipeJsonHasContent, type ParsedRecipePayload } from '@/lib/recipes/payload'
 import { getDictionary, resolveKey, type Dict } from '@/lib/i18n'
@@ -225,6 +227,10 @@ export async function setItemImageAction(
           : ctx.dict.errors.items.imageInvalid,
     }
   }
+
+  // Demo-only daily cap (no-op elsewhere) — see uploadRules.
+  const limit = await consumeRateLimits(uploadRules(ctx.restaurantId))
+  if (!limit.allowed) return { error: ctx.dict.errors.items.imageRateLimited }
 
   const path = itemThumbPath(ctx.restaurantId, id.data)
   try {

@@ -929,34 +929,16 @@ create policy "recipe-images tenant read"
         (select restaurant_id::text from public.profiles where id = auth.uid())
   );
 
-create policy "recipe-images tenant insert"
-  on storage.objects for insert to authenticated
-  with check (
-    bucket_id = 'recipe-images'
-    and (storage.foldername(name))[1] =
-        (select restaurant_id::text from public.profiles where id = auth.uid())
-  );
+-- No insert/update/delete policies: every write goes through the service-role admin
+-- client, so tenant write policies would only let a browser session bypass the app's
+-- size/type checks and rate limits (see supabase/restrict_storage_writes.sql).
 
-create policy "recipe-images tenant update"
-  on storage.objects for update to authenticated
-  using (
-    bucket_id = 'recipe-images'
-    and (storage.foldername(name))[1] =
-        (select restaurant_id::text from public.profiles where id = auth.uid())
-  )
-  with check (
-    bucket_id = 'recipe-images'
-    and (storage.foldername(name))[1] =
-        (select restaurant_id::text from public.profiles where id = auth.uid())
-  );
-
-create policy "recipe-images tenant delete"
-  on storage.objects for delete to authenticated
-  using (
-    bucket_id = 'recipe-images'
-    and (storage.foldername(name))[1] =
-        (select restaurant_id::text from public.profiles where id = auth.uid())
-  );
+-- Bucket-level ceilings, enforced for every caller including the service role.
+-- 4 MB matches MAX_IMAGE_BYTES in src/lib/images/validate.ts.
+update storage.buckets
+set file_size_limit = 4194304,
+    allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp']
+where id = 'recipe-images';
 
 
 -- =============================================================================

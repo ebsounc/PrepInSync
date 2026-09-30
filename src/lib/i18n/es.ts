@@ -283,6 +283,9 @@ export const es: Dict = {
     linkExpired: 'Ese enlace ha expirado. Inicia sesión o solicita uno nuevo.',
     linkInvalid: 'Ese enlace no es válido. Inicia sesión o solicita uno nuevo.',
     sessionExpired: 'Tu sesión expiró. Inicia sesión de nuevo.',
+    tryDemo: 'Probar la demo — sin registrarse',
+    tryDemoHint: 'Explora la cocina de un asador de ejemplo. Se reinicia para cada visitante.',
+    orSignIn: 'o inicia sesión',
   },
   unitSelect: {
     placeholder: 'Unidad',
@@ -350,6 +353,9 @@ export const es: Dict = {
       signupFailed: 'No se pudo crear tu cuenta. Inténtalo de nuevo.',
       invalidCredentials: 'Correo o contraseña inválidos.',
       resetFailed: 'No se pudo actualizar la contraseña. Tu enlace puede haber expirado.',
+      demoRateLimited: 'Demasiados accesos a la demo desde tu red. Inténtalo de nuevo en un rato.',
+      demoUnavailable: 'La demo no está disponible en este momento. Inténtalo de nuevo en breve.',
+      demoPasswordLocked: 'La contraseña de la cuenta demo no se puede cambiar.',
     },
     items: {
       noPermission: 'No tienes permiso para administrar artículos.',
@@ -364,6 +370,7 @@ export const es: Dict = {
       imageInvalid: 'Ese tipo de imagen no es compatible. Usa un JPG o PNG.',
       imageTooLarge: 'Esa imagen es demasiado grande. Prueba con una foto más pequeña.',
       imageUploadFailed: 'No se pudo subir esa foto. Inténtalo de nuevo.',
+      imageRateLimited: 'La demo alcanzó su límite de fotos por hoy.',
     },
     prepLists: {
       noPermission: 'No tienes permiso para editar listas de preparación.',
@@ -444,6 +451,7 @@ export const es: Dict = {
       imageInvalid: 'Ese tipo de imagen no es compatible. Usa un JPG o PNG.',
       imageTooLarge: 'Esa imagen es demasiado grande. Prueba con una foto más pequeña.',
       imageUploadFailed: 'No se pudo subir esa foto. Inténtalo de nuevo.',
+      imageRateLimited: 'La demo alcanzó su límite de fotos por hoy.',
     },
   },
 }

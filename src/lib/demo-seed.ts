@@ -13,7 +13,7 @@ import {
   glossaryOverrides,
 } from '@/lib/db'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { uploadImage } from '@/lib/storage'
+import { uploadImage, deleteEntityFiles } from '@/lib/storage'
 import { defaultCanCreateLists, type ProfileRole } from '@/lib/auth/roles'
 import { DEMO_RESTAURANT_ID } from '@/lib/demo'
 import { DEMO_IMAGES } from '@/lib/demo-images'
@@ -24,13 +24,13 @@ const demoImagePath = (slug: string) => `${DEMO_RESTAURANT_ID}/demo/${slug}.jpg`
 
 // ============================================================================
 // The public "Demo Kitchen" — a steakhouse with a full staff roster and a
-// realistic amount of prep. One login (the General Manager, DEMO_LOGIN) is
-// shared publicly; the rest are ghost accounts that populate the roster and get
-// attributed on completions/notes. resetDemoData() wipes + reseeds the prep data
-// (called on every demo login, so each visitor gets a clean kitchen).
+// realistic amount of prep. One account (the General Manager, DEMO_EMAIL) is what
+// the login page's "Try the demo" button signs into; the rest are ghost accounts that
+// populate the roster and get attributed on completions/notes. resetDemoData() wipes +
+// reseeds the prep data (called on every demo click, so each visitor gets a clean kitchen).
 // ============================================================================
 
-export const DEMO_LOGIN = { email: 'demo@prepinsync.app', password: 'DemoKitchen1!' }
+export const DEMO_EMAIL = 'demo@prepinsync.app'
 
 type Member = {
   key: string
@@ -41,12 +41,12 @@ type Member = {
   lang: 'en' | 'es'
 }
 
-// The GM (key 'gm') is the public login. Everyone else is a ghost (random password,
-// never shared). José and Sofía read Spanish — their cook notes are authored in
+// The GM (key 'gm') is the demo button's account. Every account — the GM included —
+// has a random, never-shared password; the button signs in with a one-time link. José and Sofía read Spanish — their cook notes are authored in
 // Spanish, so an English viewer sees them translate (and vice versa).
 const ROSTER: Member[] = [
   { key: 'owner', email: 'owner@demo.prepinsync.app', firstName: 'Robert', lastName: 'Keller', role: 'owner', lang: 'en' },
-  { key: 'gm', email: DEMO_LOGIN.email, firstName: 'Demo', lastName: 'Account', role: 'general_manager', lang: 'en' },
+  { key: 'gm', email: DEMO_EMAIL, firstName: 'Demo', lastName: 'Account', role: 'general_manager', lang: 'en' },
   { key: 'kmgr', email: 'kmgr@demo.prepinsync.app', firstName: 'Priya', lastName: 'Nair', role: 'kitchen_manager', lang: 'en' },
   { key: 'headchef', email: 'headchef@demo.prepinsync.app', firstName: 'Marco', lastName: 'Rossi', role: 'head_chef', lang: 'en' },
   { key: 'souschef', email: 'souschef@demo.prepinsync.app', firstName: 'Danielle', lastName: 'Brooks', role: 'sous_chef', lang: 'en' },
@@ -236,7 +236,8 @@ const dayString = (offset: number) => {
 }
 
 // Idempotent: creates the restaurant + every roster account (or updates them). Auth
-// users persist across resets; the GM password is kept in sync. Run once (or to add
+// users persist across resets; the GM password is re-randomized on every run, which
+// retires the password that used to be published in the README. Run once (or to add
 // a missing account). resetDemoData() handles the prep content.
 // Uploads the cover tiles to their stable paths (upsert, so re-running is harmless).
 // Storage isn't touched by resetDemoData, so this only needs to run at setup time.
@@ -258,7 +259,7 @@ export async function ensureDemoAccounts() {
 
   const { data: existing } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 })
   for (const m of ROSTER) {
-    const password = m.key === 'gm' ? DEMO_LOGIN.password : crypto.randomUUID()
+    const password = crypto.randomUUID()
     let id = existing.users.find((u) => u.email === m.email)?.id
     if (!id) {
       const created = await admin.auth.admin.createUser({
@@ -270,7 +271,7 @@ export async function ensureDemoAccounts() {
       id = created.data?.user?.id
       if (!id) throw new Error(`could not create ${m.email}: ${created.error?.message}`)
     } else if (m.key === 'gm') {
-      await admin.auth.admin.updateUserById(id, { password }) // keep the documented login working
+      await admin.auth.admin.updateUserById(id, { password })
     }
     await db
       .insert(profiles)
@@ -299,16 +300,29 @@ export async function ensureDemoAccounts() {
   }
 }
 
-// Wipes the demo kitchen's prep content and reseeds it fresh. Accounts, roster, and
-// the restaurant are left intact. Called on every demo login so each visitor starts
-// clean. Requires ensureDemoAccounts() to have run.
+// Wipes the demo kitchen's prep content and reseeds it fresh, and puts back anything
+// the previous visitor could have changed in Settings (restaurant name/timezone, the
+// GM's language and appearance). Accounts and roster are left intact. Called on every
+// demo click so each visitor starts clean. Requires ensureDemoAccounts() to have run.
 export async function resetDemoData() {
+  // Uploaded thumbnails/covers outlive the rows deleted below, so clear them too (the
+  // seeded tiles live under demo/ and are untouched). Runs alongside the DB work;
+  // best-effort, since a stray object is inert and shouldn't fail the reset.
+  const storageCleanup = Promise.all([
+    deleteEntityFiles(`${DEMO_RESTAURANT_ID}/items`, 'thumb.jpg'),
+    deleteEntityFiles(`${DEMO_RESTAURANT_ID}/recipes`, 'cover.jpg'),
+  ]).catch((e) => console.error('demo storage cleanup failed', e))
+
   await db.delete(prepLists).where(eq(prepLists.restaurantId, DEMO_RESTAURANT_ID)) // cascades entries
   await db.delete(recipes).where(eq(recipes.restaurantId, DEMO_RESTAURANT_ID))
   await db.delete(prepItems).where(eq(prepItems.restaurantId, DEMO_RESTAURANT_ID))
   await db.delete(restaurantUnits).where(eq(restaurantUnits.restaurantId, DEMO_RESTAURANT_ID))
   await db.delete(translations).where(eq(translations.restaurantId, DEMO_RESTAURANT_ID))
   await db.delete(glossaryOverrides).where(eq(glossaryOverrides.restaurantId, DEMO_RESTAURANT_ID))
+  await db
+    .update(restaurants)
+    .set({ name: 'Demo Kitchen', timezone: TZ, listDefaultDay: 'today' })
+    .where(eq(restaurants.id, DEMO_RESTAURANT_ID))
 
   const members = await db
     .select({ id: profiles.id, first: profiles.firstName, last: profiles.lastName })
@@ -318,6 +332,10 @@ export async function resetDemoData() {
   const uid = (key: string) => idByName.get(memberName(key))
   const gmId = uid('gm')
   if (!gmId) throw new Error('demo accounts missing — run ensureDemoAccounts() first')
+  await db
+    .update(profiles)
+    .set({ preferredLanguage: 'en', theme: 'system', accentColor: null })
+    .where(eq(profiles.id, gmId))
 
   // Bulk-insert everything (a handful of round-trips) so the on-login reset stays snappy.
   const itemRows = await db
@@ -381,4 +399,5 @@ export async function resetDemoData() {
     }))
   )
   await db.insert(prepListEntries).values(entryValues)
+  await storageCleanup
 }

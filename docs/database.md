@@ -149,8 +149,9 @@ RLS is **enabled on all 11 tables**. Policies as currently deployed:
 Source: [`supabase/rls_and_triggers.sql`](../supabase/rls_and_triggers.sql),
 [`supabase/add_invites_table.sql`](../supabase/add_invites_table.sql),
 [`supabase/add_restaurant_units_rls.sql`](../supabase/add_restaurant_units_rls.sql),
-[`supabase/add_rate_limits_rls.sql`](../supabase/add_rate_limits_rls.sql), and
-[`supabase/add_recipe_images_storage.sql`](../supabase/add_recipe_images_storage.sql) (Storage — below).
+[`supabase/add_rate_limits_rls.sql`](../supabase/add_rate_limits_rls.sql),
+[`supabase/add_recipe_images_storage.sql`](../supabase/add_recipe_images_storage.sql) and
+[`supabase/restrict_storage_writes.sql`](../supabase/restrict_storage_writes.sql) (Storage — below).
 
 ### Rate limiting (`rate_limits`)
 
@@ -301,8 +302,9 @@ if a concurrent double-create ever proves to be a real problem.
 
 Recipe cover photos and prep-item thumbnails live in a single **private** Supabase
 Storage bucket `recipe-images`. Defined in
-[`supabase/add_recipe_images_storage.sql`](../supabase/add_recipe_images_storage.sql)
-— **applied manually in the SQL editor; the bucket does not exist until it runs.**
+[`supabase/add_recipe_images_storage.sql`](../supabase/add_recipe_images_storage.sql),
+then locked down by [`supabase/restrict_storage_writes.sql`](../supabase/restrict_storage_writes.sql)
+— **both applied manually in the SQL editor; the bucket does not exist until the first runs.**
 
 - **Tenant isolation by path.** Objects are keyed `{restaurantId}/recipes/{recipeId}/cover.jpg`
   and `{restaurantId}/items/{itemId}/thumb.jpg`. `storage.objects` RLS keys on the
@@ -315,9 +317,12 @@ Storage bucket `recipe-images`. Defined in
   batched `getSignedUrls` for lists). TTL 1h — a page open past that shows broken
   images until reload (acceptable for v1).
 - **All Storage mutations go through the service-role admin client** (`lib/storage`,
-  `server-only`), which **bypasses** the RLS above; the policies are defense-in-depth
-  for any direct anon/browser access. Reads never hand the browser a raw path — only
-  signed URLs.
+  `server-only`), which **bypasses** RLS. There are deliberately **no insert/update/delete
+  policies** — only the tenant SELECT policy — so a browser session can't write to Storage
+  directly and skip the app's size/type checks and rate limits (with the one-click public
+  demo, that would let any visitor delete the seeded demo photos). The bucket itself caps
+  objects at 4 MB and `image/jpeg|png|webp`, matching `lib/images/validate.ts`. Reads never
+  hand the browser a raw path — only signed URLs.
 - **Photo *ingestion* uses no Storage.** A scanned recipe photo is sent inline to
   Claude vision (`scanRecipe`) and discarded; only cover/thumbnail uploads persist.
 - **Orphan cleanup is best-effort.** Delete actions call `deletePrefix(...)` after the

@@ -4,8 +4,8 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db, translations } from '@/lib/db'
 import { translateBatch } from '@/lib/ai'
 import { getGlossaryOverrides } from '@/lib/db/queries/glossary'
-import { consumeRateLimit } from '@/lib/db/queries/rate-limit'
-import { translationRule } from '@/lib/rate-limits'
+import { consumeRateLimits } from '@/lib/db/queries/rate-limit'
+import { translationRules } from '@/lib/rate-limits'
 
 export type TranslatableField = {
   entityType: string
@@ -118,7 +118,7 @@ export async function getTranslations(
           // already the "show source text, persist nothing, retry next render" path —
           // so a rate-limited cook sees untranslated text rather than an error, and it
           // heals itself when the window rolls over.
-          const { allowed } = await consumeRateLimit(translationRule(restaurantId))
+          const { allowed } = await consumeRateLimits(translationRules(restaurantId))
           if (!allowed) throw new Error('translation rate limit exceeded')
 
           const translated = await translateBatch({

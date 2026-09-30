@@ -2,15 +2,19 @@
 
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfileByUserId } from '@/lib/db/queries/profiles'
 import { getOrigin } from '@/lib/get-origin'
 import { asLang, resolveKey } from '@/lib/i18n'
 import { setCookieLang, getActionDict } from '@/lib/i18n/server'
 import { setAppearanceCookies, clearAppearanceCookies } from '@/lib/appearance-cookies'
 import { isDemoRestaurant } from '@/lib/demo'
-import { resetDemoData } from '@/lib/demo-seed'
+import { DEMO_EMAIL, resetDemoData } from '@/lib/demo-seed'
+import { consumeRateLimit } from '@/lib/db/queries/rate-limit'
+import { demoLoginRule, demoResetRule } from '@/lib/rate-limits'
 
 // Zod messages carry a dotted dictionary KEY; resolved to the user's language on
 // return (auth pages have no profile, so the dict comes from the lang cookie).
@@ -131,9 +135,36 @@ export async function loginAction(
     await setAppearanceCookies(profile.theme, profile.accentColor)
   }
 
-  // Public demo: reseed a clean kitchen on every login so each visitor starts fresh
-  // and never inherits the last one's edits. Best-effort — never block sign-in.
-  if (isDemoRestaurant(profile?.restaurantId)) {
+  if (!profile?.restaurantId) {
+    redirect('/onboarding')
+  }
+
+  redirect('/dashboard')
+}
+
+// ---------------------------------------------------------------------------
+// Demo
+// ---------------------------------------------------------------------------
+
+// The login page's "Try the demo" button. Signs into the shared Demo Kitchen account
+// server-side with a one-time admin-generated link instead of a password, so there is
+// no published credential to script against, and a visitor who changes the demo
+// password (the Supabase auth API is reachable from the browser) can't lock everyone
+// else out. generateLink only returns the token — it sends no email.
+export async function demoLoginAction(_prevState: LoginState): Promise<LoginState> {
+  const dict = await getActionDict()
+
+  // Per IP: every click reseeds the kitchen, so a looping script would hammer the DB
+  // and keep wiping the translation cache. x-forwarded-for is set by Vercel's edge, not
+  // the client; locally it's absent and everyone shares one bucket, which is harmless.
+  const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const { allowed } = await consumeRateLimit(demoLoginRule(ip))
+  if (!allowed) return { error: dict.errors.auth.demoRateLimited }
+
+  // Reseed first so the visitor lands in a clean kitchen and never inherits the last
+  // one's edits. Best-effort — a failed or globally rate-limited reset shouldn't block
+  // the demo itself.
+  if ((await consumeRateLimit(demoResetRule())).allowed) {
     try {
       await resetDemoData()
     } catch (e) {
@@ -141,10 +172,28 @@ export async function loginAction(
     }
   }
 
-  if (!profile?.restaurantId) {
-    redirect('/onboarding')
+  const { data, error } = await createAdminClient().auth.admin.generateLink({
+    type: 'magiclink',
+    email: DEMO_EMAIL,
+  })
+  if (error || !data.properties?.hashed_token) {
+    console.error('demo link generation failed', error)
+    return { error: dict.errors.auth.demoUnavailable }
+  }
+  const supabase = await createClient()
+  const { error: verifyError } = await supabase.auth.verifyOtp({
+    type: 'magiclink',
+    token_hash: data.properties.hashed_token,
+  })
+  if (verifyError) {
+    console.error('demo sign-in failed', verifyError)
+    return { error: dict.errors.auth.demoUnavailable }
   }
 
+  // Matches what resetDemoData just wrote to the GM profile, so the first paint is
+  // English + default theme regardless of what this device had before.
+  await setCookieLang('en')
+  await setAppearanceCookies('system', null)
   redirect('/dashboard')
 }
 
@@ -213,6 +262,17 @@ export async function resetPasswordAction(
   }
 
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const profile = user ? await getProfileByUserId(user.id) : null
+
+  // The demo account is shared; its password isn't the visitor's to change. (The demo
+  // button doesn't use the password, so this is hygiene, not what keeps the demo up.)
+  if (isDemoRestaurant(profile?.restaurantId)) {
+    return { error: (await getActionDict()).errors.auth.demoPasswordLocked }
+  }
+
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password })
 
   if (error) {
@@ -222,13 +282,7 @@ export async function resetPasswordAction(
   // This path (password reset + invite set-password) creates a session without going
   // through loginAction, so seed the appearance cookies from the profile — otherwise a
   // stale cookie from a prior user on this device would win in the root layout.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (user) {
-    const profile = await getProfileByUserId(user.id)
-    if (profile) await setAppearanceCookies(profile.theme, profile.accentColor)
-  }
+  if (profile) await setAppearanceCookies(profile.theme, profile.accentColor)
 
   redirect('/dashboard')
 }

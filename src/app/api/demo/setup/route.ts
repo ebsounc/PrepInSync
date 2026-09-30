@@ -5,7 +5,8 @@ import { ensureDemoAccounts, resetDemoData } from '@/lib/demo-seed'
 // (not a query param — keeps the secret out of access logs / browser history).
 //   POST /api/demo/setup?full=1   -H "x-demo-secret: ..."   -> create/repair accounts + reseed
 //   POST /api/demo/setup          -H "x-demo-secret: ..."   -> reseed data only
-// Ongoing per-visitor resets happen automatically on demo login (no secret needed).
+// Ongoing per-visitor resets happen automatically on the login page's demo button.
+// Run ?full=1 once after deploying the demo button to retire the old published password.
 export async function POST(request: Request) {
   const secret = request.headers.get('x-demo-secret')
   // Fail closed: if the secret isn't configured, nobody gets in.
